@@ -1,0 +1,189 @@
+{
+  "version": "0.1.0",
+  "project": "campus-agent",
+  "codebaseProfile": {
+    "languages": [
+      "TypeScript",
+      "JavaScript"
+    ],
+    "frameworks": [
+      "Next.js (App Router)",
+      "React"
+    ],
+    "backend": [
+      "Node.js API"
+    ],
+    "database": [
+      "SQL / Relational DB"
+    ],
+    "testing": [
+      "Unit & E2E Testing"
+    ],
+    "auth": [],
+    "styling": [
+      "TailwindCSS"
+    ]
+  },
+  "orchestrator": {
+    "enabled": true,
+    "maxConcurrentAgents": 4,
+    "autoDecompose": true,
+    "logEvents": true
+  },
+  "agents": {
+    "frontend": {
+      "name": "Frontend Agent",
+      "role": "Next.js (App Router) & Component Engineering",
+      "sprite": "frontend",
+      "color": "#00f0ff",
+      "enabled": true,
+      "maxTasks": 2,
+      "skills": [
+        "nextjs",
+        "react",
+        "tailwind"
+      ],
+      "permissions": {
+        "read": [
+          "components/**",
+          "pages/**",
+          "app/**",
+          "styles/**",
+          "public/**"
+        ],
+        "write": [
+          "components/**",
+          "pages/**",
+          "app/**",
+          "styles/**"
+        ]
+      }
+    },
+    "backend": {
+      "name": "Backend Agent",
+      "role": "Node.js API Architecture & Business Logic",
+      "sprite": "backend",
+      "color": "#ff007f",
+      "enabled": true,
+      "maxTasks": 2,
+      "skills": [],
+      "permissions": {
+        "read": [
+          "api/**",
+          "server/**",
+          "routes/**",
+          "controllers/**",
+          "lib/**"
+        ],
+        "write": [
+          "api/**",
+          "server/**",
+          "routes/**",
+          "controllers/**"
+        ]
+      }
+    },
+    "database": {
+      "name": "Database Agent",
+      "role": "SQL / Relational DB & Data Modeling Architect",
+      "sprite": "database",
+      "color": "#ffd700",
+      "enabled": true,
+      "maxTasks": 1,
+      "skills": [],
+      "permissions": {
+        "read": [
+          "prisma/**",
+          "db/**",
+          "migrations/**",
+          "models/**",
+          "drizzle/**"
+        ],
+        "write": [
+          "prisma/**",
+          "db/**",
+          "migrations/**",
+          "drizzle/**"
+        ]
+      }
+    },
+    "security": {
+      "name": "Security Agent",
+      "role": "OWASP & Vulnerability Hardening",
+      "sprite": "security",
+      "color": "#ff3344",
+      "enabled": true,
+      "maxTasks": 1,
+      "skills": [
+        "security-audit",
+        "codebase-intelligence",
+        "auth-security"
+      ],
+      "permissions": {
+        "read": [
+          "**/*"
+        ],
+        "write": [
+          "security/**",
+          ".env.example"
+        ]
+      }
+    },
+    "performance": {
+      "name": "Performance Agent",
+      "role": "Core Web Vitals & Runtime Profiling",
+      "sprite": "performance",
+      "color": "#39ff14",
+      "enabled": true,
+      "maxTasks": 1,
+      "skills": [
+        "performance-profiling",
+        "lcp-optimization",
+        "memory-profiling"
+      ],
+      "permissions": {
+        "read": [
+          "**/*"
+        ],
+        "write": [
+          "**/*"
+        ]
+      }
+    },
+    "qa": {
+      "name": "QA Agent",
+      "role": "Unit & E2E Testing Automation Lead",
+      "sprite": "qa",
+      "color": "#b026ff",
+      "enabled": true,
+      "maxTasks": 1,
+      "dependsOn": [
+        "frontend",
+        "backend",
+        "database"
+      ],
+      "skills": [
+        "testing"
+      ],
+      "permissions": {
+        "read": [
+          "**/*"
+        ],
+        "write": [
+          "tests/**",
+          "__tests__/**",
+          "cypress/**",
+          "playwright/**",
+          "e2e/**"
+        ]
+      }
+    }
+  },
+  "dashboard": {
+    "enabled": true,
+    "port": 4747,
+    "theme": "pixel",
+    "crtEffect": true,
+    "soundEffects": true
+  }
+}
