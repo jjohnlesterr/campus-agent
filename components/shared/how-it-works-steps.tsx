@@ -1,7 +1,9 @@
+const DEFAULT_ASK_EXAMPLE = "“How do I fix my INC?” or “Where do I get my TOR?”"
+
 const STEPS = [
   {
     title: "Ask in your own words",
-    body: "Type a question the way you would ask a friend — “How do I fix my INC?” or “Where do I get my TOR?”",
+    body: (example: string) => `Type a question the way you would ask a friend — ${example}`,
   },
   {
     title: "Campus Agent checks verified sources",
@@ -13,7 +15,8 @@ const STEPS = [
   },
 ]
 
-export function HowItWorksSteps({ className }: { className?: string }) {
+/** `askExample` replaces the sample questions in step 1 (the public page uses applicant questions). */
+export function HowItWorksSteps({ className, askExample = DEFAULT_ASK_EXAMPLE }: { className?: string; askExample?: string }) {
   return (
     <ol className={className ?? "grid gap-10 md:grid-cols-3 md:gap-8"}>
       {STEPS.map((step, i) => (
@@ -30,7 +33,7 @@ export function HowItWorksSteps({ className }: { className?: string }) {
             )}
           </div>
           <h3 className="text-lg font-semibold">{step.title}</h3>
-          <p className="leading-relaxed text-muted-foreground">{step.body}</p>
+          <p className="leading-relaxed text-muted-foreground">{typeof step.body === "function" ? step.body(askExample) : step.body}</p>
         </li>
       ))}
     </ol>

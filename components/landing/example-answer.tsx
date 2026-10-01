@@ -1,14 +1,14 @@
-import { Clock, FileText, MapPin } from "lucide-react"
+import { FileText, MapPin } from "lucide-react"
 
-// Illustrative example of Campus Agent's structured answer format.
-// Labelled on screen as an example: real answers come from the university's
-// verified sources, which are not loaded yet.
+// Example of Campus Agent's structured answer format, for the public page.
+// Content comes from the university's verified sources: enrollment rules from
+// the handbook (Information WUP, page 1) and the Registrar's location from the
+// official campus map legend.
 const steps = [
-  "Contact your instructor about the incomplete requirement.",
-  "Complete the missing requirement within the allowed period.",
-  "Submit the completion form with your instructor's signature.",
-  "Wait for the Registrar to process the updated grade.",
-  "Check your updated grade in your student records.",
+  "Register during the official registration period set in the academic calendar.",
+  "Submit your valid credentials.",
+  "Pay the required fees.",
+  "You are officially enrolled once your credentials are submitted and your fees are paid.",
 ]
 
 export function ExampleAnswer() {
@@ -18,7 +18,7 @@ export function ExampleAnswer() {
       className="overflow-hidden rounded-xl border bg-card text-sm shadow-[0_1px_2px_oklch(0.22_0.025_262/0.05),0_12px_32px_-12px_oklch(0.22_0.025_262/0.18)]"
     >
       <div className="flex items-center justify-between gap-3 border-b bg-muted/60 px-5 py-3">
-        <p className="font-medium">How do I fix an INC grade?</p>
+        <p className="font-medium">How do I enroll?</p>
         <span className="shrink-0 rounded-md border bg-background px-2 py-0.5 text-xs text-muted-foreground">
           Example
         </span>
@@ -26,7 +26,7 @@ export function ExampleAnswer() {
 
       <div className="px-5 pt-4 pb-5">
         <h3 className="answer-step text-base font-semibold" style={{ "--step": 0 } as React.CSSProperties}>
-          Completing an Incomplete (INC) grade
+          Enrolling at the university
         </h3>
         <ol className="mt-3 flex flex-col gap-2.5">
           {steps.map((step, i) => (
@@ -46,24 +46,16 @@ export function ExampleAnswer() {
           ))}
         </ol>
 
-        <dl
-          className="answer-step mt-5 grid gap-x-6 gap-y-2 border-t pt-4 sm:grid-cols-2"
+        <div
+          className="answer-step mt-5 flex items-start gap-2 border-t pt-4"
           style={{ "--step": steps.length + 1 } as React.CSSProperties}
         >
-          <div className="flex items-start gap-2">
-            <dt className="sr-only">Office</dt>
-            <MapPin className="mt-0.5 size-4 text-primary" aria-hidden="true" />
-            <dd>
-              <span className="font-medium">Office of the Registrar</span>
-              <span className="block text-muted-foreground">Administration Building</span>
-            </dd>
-          </div>
-          <div className="flex items-start gap-2">
-            <dt className="sr-only">Office hours</dt>
-            <Clock className="mt-0.5 size-4 text-primary" aria-hidden="true" />
-            <dd className="text-muted-foreground">Mon–Fri, 8:00 AM – 5:00 PM</dd>
-          </div>
-        </dl>
+          <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <p>
+            <span className="font-medium">Registrar</span>
+            <span className="block text-muted-foreground">L1, Gloria D. Lacson Building (Building 1)</span>
+          </p>
+        </div>
 
         <div
           className="answer-step mt-4 flex items-start gap-2 rounded-md bg-muted/70 px-3 py-2.5"
@@ -71,14 +63,14 @@ export function ExampleAnswer() {
         >
           <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <p className="text-muted-foreground">
-            <span className="font-medium text-foreground">Source:</span> Student Handbook — Incomplete
-            Grades section
+            <span className="font-medium text-foreground">Sources:</span> Information WUP — Page 1; Official campus map —
+            Building 1
           </p>
         </div>
       </div>
 
       <figcaption className="border-t px-5 py-2.5 text-xs text-muted-foreground">
-        Illustrative format. Real answers cite your university&apos;s verified documents.
+        Example of the answer format. Real answers cite the university&apos;s verified sources.
       </figcaption>
     </figure>
   )
