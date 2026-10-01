@@ -15,7 +15,7 @@ export const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string; hint: stri
   { value: "policy", label: "Policy / Memo", hint: "Text is extracted and used to answer student questions." },
   { value: "announcement", label: "Announcement Reference", hint: "Text is extracted and used to answer student questions." },
   { value: "calendar", label: "Academic Calendar", hint: "Text is extracted and used to answer student questions." },
-  { value: "campus_map", label: "Campus Map", hint: "Stored as a reference file (PDF or image). Not read by the assistant." },
+  { value: "campus_map", label: "Campus Map", hint: "PDF text is extracted; images are stored as references without text extraction." },
   { value: "other", label: "Other", hint: "Text is extracted and used to answer student questions." },
 ]
 
@@ -35,14 +35,14 @@ export function sourceTypeLabel(type: SourceType) {
   return LABELS[type] ?? "Other"
 }
 
-/** Campus maps are reference/visual sources: stored, never chunked or sent to Claude. */
-export function isReferenceOnly(type: SourceType) {
-  return type === "campus_map"
+/** Images are reference files; PDFs with selectable text use the extraction pipeline. */
+export function isReferenceOnly(type: SourceType, mimeType?: string) {
+  return mimeType ? mimeType.startsWith("image/") : type === "campus_map"
 }
 
 /** MIME types accepted for a source type. */
-export function acceptedMimeTypes(type: SourceType): string[] {
-  return isReferenceOnly(type) ? [PDF, ...IMAGE_TYPES] : [PDF]
+export function acceptedMimeTypes(): string[] {
+  return [PDF, ...IMAGE_TYPES]
 }
 
 export const EXTENSIONS: Record<string, string> = {

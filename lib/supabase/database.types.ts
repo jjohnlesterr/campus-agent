@@ -69,7 +69,9 @@ export type Database = {
       }
       campus_locations: {
         Row: {
+          aliases: string[]
           building_name: string | null
+          building_number: number | null
           created_at: string
           description: string | null
           floor: string | null
@@ -81,7 +83,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          aliases?: string[]
           building_name?: string | null
+          building_number?: number | null
           created_at?: string
           description?: string | null
           floor?: string | null
@@ -93,7 +97,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          aliases?: string[]
           building_name?: string | null
+          building_number?: number | null
           created_at?: string
           description?: string | null
           floor?: string | null
