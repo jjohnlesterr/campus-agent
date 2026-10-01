@@ -8,11 +8,16 @@ import { type AnswerSource, type StructuredAnswer, answerToMarkdown } from "@/li
 import { CLAUDE_MODEL, getAnthropic } from "@/lib/ai/anthropic"
 import { type GuardrailCategory, classifyMessage } from "@/lib/ai/guardrail"
 import { type ReplyLanguage, detectLanguage } from "@/lib/ai/language"
+import { STUDENT_ONLY_MESSAGE, publicScopeReply } from "@/lib/ai/public-scope"
 import { expandQuery } from "@/lib/ai/query-expansion"
 import { answerFeedQuestion, getDepartmentCodes } from "@/lib/campus/feed"
 import { detectFeedQuestion } from "@/lib/campus/feed-match"
 import { detectLocationQuestion, detectPlaceMention } from "@/lib/campus/location-match"
 import { locationNotFound, lookupLocation } from "@/lib/campus/locations"
+import { answerProgramsQuestion } from "@/lib/campus/programs"
+import { detectProgramsQuestion } from "@/lib/campus/programs-match"
+import { createPublicClient } from "@/lib/supabase/public"
+import type { DbClient } from "@/lib/supabase/types"
 import { type HandbookPassage, searchHandbook } from "@/lib/rag/search"
 
 // Campus Agent answer flow:
@@ -76,8 +81,16 @@ export type CampusAgentAnswer = StructuredAnswer & {
   usage?: { inputTokens: number; outputTokens: number }
   /** True when the guardrail answered without retrieval or Claude. Internal — never stored or shown. */
   handledLocally?: boolean
-  guardrail?: GuardrailCategory
+  guardrail?: GuardrailCategory | "student_only"
 }
+
+/**
+ * "student" (default): the signed-in app — the request's own session and RLS.
+ * "public": the landing page — an anonymous client (public, Ready sources only),
+ * current-student topics answered with a sign-in message, plus programs lookup and
+ * typo-tolerant place names.
+ */
+export type AnswerAudience = "student" | "public"
 
 function fixed(status: "not_found" | "error", message: string, retrieved: HandbookPassage[], usage?: CampusAgentAnswer["usage"]): CampusAgentAnswer {
   const answer: StructuredAnswer = { status, summary: message, steps: [], requirements: [], details: "", gaps: "", sources: [] }
@@ -92,8 +105,11 @@ function sourcesBlock(passages: HandbookPassage[]) {
   return `<sources>\n${items.join("\n")}\n</sources>`
 }
 
-export async function answerQuestion(question: string): Promise<CampusAgentAnswer> {
+export async function answerQuestion(question: string, { audience = "student" }: { audience?: AnswerAudience } = {}): Promise<CampusAgentAnswer> {
   const q = question.trim().slice(0, 1000)
+  const isPublic = audience === "public"
+  // Public answers never use the visitor's session, even if they are signed in.
+  const db: DbClient | undefined = isPublic ? createPublicClient() : undefined
 
   // Obvious non-questions are answered here, before any retrieval or Claude call.
   const guard = classifyMessage(q)
@@ -105,11 +121,28 @@ export async function answerQuestion(question: string): Promise<CampusAgentAnswe
 
   const language = detectLanguage(q)
 
+  if (isPublic) {
+    // Current-student topics (INC, grades, clearance…) belong in the signed-in app.
+    if (publicScopeReply(q)) {
+      const answer: StructuredAnswer = { status: "not_found", summary: STUDENT_ONLY_MESSAGE, steps: [], requirements: [], details: "", gaps: "", sources: [] }
+      return { ...answer, text: STUDENT_ONLY_MESSAGE, retrieved: [], handledLocally: true, guardrail: "student_only" }
+    }
+    try {
+      const programsQuestion = detectProgramsQuestion(q, await getDepartmentCodes(db))
+      if (programsQuestion && db) {
+        const programs = await answerProgramsQuestion(programsQuestion, language, db)
+        return { ...programs, text: answerToMarkdown(programs), retrieved: [] }
+      }
+    } catch (error) {
+      console.error("Campus Agent: programs lookup failed", error instanceof Error ? error.message : error)
+    }
+  }
+
   // Events / announcements come from their structured records.
   try {
-    const feedQuestion = detectFeedQuestion(q, await getDepartmentCodes())
+    const feedQuestion = detectFeedQuestion(q, await getDepartmentCodes(db))
     if (feedQuestion) {
-      const feed = await answerFeedQuestion(feedQuestion, language)
+      const feed = await answerFeedQuestion(feedQuestion, language, db)
       return { ...feed, text: answerToMarkdown(feed), retrieved: [] }
     }
   } catch (error) {
@@ -118,31 +151,32 @@ export async function answerQuestion(question: string): Promise<CampusAgentAnswe
 
   // "Where is …?" / "Nasaan …?", or a message that is just a place name ("registrar").
   const locationQuestion = detectLocationQuestion(q)
-  const placeQuestion = locationQuestion ?? detectPlaceMention(q, language)
+  const mention = locationQuestion ?? detectPlaceMention(q, language)
+  const placeQuestion = mention && isPublic ? { ...mention, fuzzy: true } : mention
   if (placeQuestion) {
     try {
-      const located = await lookupLocation(placeQuestion)
+      const located = await lookupLocation(placeQuestion, db)
       if (located) return { ...located, text: answerToMarkdown(located), retrieved: [] }
     } catch (error) {
       console.error("Campus Agent: location lookup failed", error instanceof Error ? error.message : error)
     }
   }
-  if (!locationQuestion) return answerFromHandbook(q, language)
+  if (!locationQuestion) return answerFromHandbook(q, language, db)
 
   // Not on the map legend: the handbook may still cover it ("Where is the ID validated?").
-  const fromHandbook = await answerFromHandbook(q, language)
+  const fromHandbook = await answerFromHandbook(q, language, db)
   if (fromHandbook.status !== "not_found") return fromHandbook
   try {
-    const notFound = await locationNotFound(locationQuestion)
+    const notFound = await locationNotFound(locationQuestion, db)
     return { ...notFound, text: notFound.summary, retrieved: fromHandbook.retrieved, usage: fromHandbook.usage }
   } catch {
     return fromHandbook
   }
 }
 
-async function answerFromHandbook(q: string, language: ReplyLanguage): Promise<CampusAgentAnswer> {
+async function answerFromHandbook(q: string, language: ReplyLanguage, db?: DbClient): Promise<CampusAgentAnswer> {
   // Search with English handbook terms added; Claude still sees the original question.
-  const passages = await searchHandbook(expandQuery(q), { limit: MAX_PASSAGES })
+  const passages = await searchHandbook(expandQuery(q), { limit: MAX_PASSAGES, supabase: db })
 
   // Nothing relevant in the handbook: don't ask Claude to answer from nothing.
   if (passages.length === 0) return fixed("not_found", noSourceMessage(language), [])

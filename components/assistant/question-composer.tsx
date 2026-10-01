@@ -8,13 +8,11 @@ import { cn } from "cn"
 // Question input shared by the public landing page and the student chat.
 // With `onAsk`, questions are sent to Campus Agent. Without it (public landing
 // page, not connected yet), submitting shows `notConnectedMessage` instead of
-// pretending to answer. `respond` can give a local reply first (e.g. the public
-// page's sign-in message for current-student questions).
+// pretending to answer.
 export function QuestionComposer({
   placeholder,
   suggestions = [],
   notConnectedMessage,
-  respond,
   onAsk,
   busy = false,
   size = "default",
@@ -23,8 +21,6 @@ export function QuestionComposer({
   placeholder: string
   suggestions?: string[]
   notConnectedMessage?: string
-  /** Local reply when there is no `onAsk`; return null to show `notConnectedMessage`. */
-  respond?: (question: string) => string | null
   /** Sends the question; resolve `false` to keep the text (e.g. on error). */
   onAsk?: (question: string) => Promise<boolean>
   busy?: boolean
@@ -48,7 +44,7 @@ export function QuestionComposer({
       return
     }
     if (!onAsk) {
-      setStatus(respond?.(question) ?? notConnectedMessage ?? null)
+      setStatus(notConnectedMessage ?? null)
       return
     }
     setValue("")

@@ -11,6 +11,8 @@ export type LocationQuestion = {
   target: string[]
   /** Bare mentions ("registrar") only answer on an exact name/alias match. */
   exactOnly?: boolean
+  /** Correct small typos against legend words first ("registar" → "registrar"). */
+  fuzzy?: boolean
 }
 
 export type MapPlace = {
@@ -87,12 +89,50 @@ export function detectPlaceMention(question: string, language: Language): Locati
  * specific entry whose name appears inside the question.
  * Ties are reported as ambiguous rather than guessed.
  */
+/** Edit distance between two short words. */
+function editDistance(a: string, b: string) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i]
+    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    prev = row
+  }
+  return prev[b.length]
+}
+
+/**
+ * Replaces misspelled words with the closest word used in the legend: within 1 edit,
+ * or 2 for words of 7+ letters. Ties are left alone rather than guessed.
+ */
+export function correctTypos(target: string[], vocabulary: Set<string>) {
+  return target.map((word) => {
+    if (vocabulary.has(word) || word.length < 4 || /\d/.test(word)) return word
+    const limit = word.length >= 7 ? 2 : 1
+    let best: string | null = null
+    let bestDistance = Infinity
+    let tie = false
+    for (const candidate of vocabulary) {
+      if (Math.abs(candidate.length - word.length) > limit) continue
+      const d = editDistance(word, candidate)
+      if (d < bestDistance) [best, bestDistance, tie] = [candidate, d, false]
+      else if (d === bestDistance) tie = true
+    }
+    return best && bestDistance <= limit && !tie ? best : word
+  })
+}
+
 export function matchPlace(
   target: string[],
   places: MapPlace[],
   departmentAliases: Map<string, string[]> = new Map(),
-  { exactOnly = false }: { exactOnly?: boolean } = {}
+  { exactOnly = false, fuzzy = false }: { exactOnly?: boolean; fuzzy?: boolean } = {}
 ): LocationMatch {
+  if (fuzzy) {
+    const vocabulary = new Set(
+      places.flatMap((p) => [p.name, ...p.aliases, ...(departmentAliases.get(normalize(p.name)) ?? [])].flatMap(keyTokens))
+    )
+    target = correctTypos(target, vocabulary)
+  }
   // "Where is Building 1?" → the building with that number.
   if (target.length === 1 && /^\d+$/.test(target[0])) {
     const building = places.find((p) => isBuilding(p) && p.building_number === Number(target[0]))

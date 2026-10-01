@@ -14,6 +14,7 @@ import {
   notFoundSentence,
 } from "@/lib/campus/location-match"
 import { createClient } from "@/lib/supabase/server"
+import type { DbClient } from "@/lib/supabase/types"
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
@@ -64,14 +65,14 @@ function mapSources(numbers: number[], mapTitle: string | null): AnswerSource[] 
  * Answers a location question from the map legend, or returns null when no
  * entry matches (the caller then tries the handbook). No AI is involved.
  */
-export async function lookupLocation(question: LocationQuestion): Promise<StructuredAnswer | null> {
-  const supabase = await createClient()
+export async function lookupLocation(question: LocationQuestion, supabase?: DbClient): Promise<StructuredAnswer | null> {
+  supabase ??= await createClient()
   const [places, departmentAliases, { map }] = await Promise.all([
     getMapPlaces(supabase),
     getDepartmentAliases(supabase),
     getActiveCampusMap(supabase),
   ])
-  const match = matchPlace(question.target, places, departmentAliases, { exactOnly: question.exactOnly })
+  const match = matchPlace(question.target, places, departmentAliases, { exactOnly: question.exactOnly, fuzzy: question.fuzzy })
   if (match.kind === "none") return null
 
   const matched = match.kind === "found" ? [match.place] : match.places
@@ -106,8 +107,8 @@ export async function lookupLocation(question: LocationQuestion): Promise<Struct
 }
 
 /** A location question nothing verified answers: say so, and offer the map when there is one. */
-export async function locationNotFound(question: LocationQuestion): Promise<StructuredAnswer> {
-  const { map } = await getActiveCampusMap(await createClient())
+export async function locationNotFound(question: LocationQuestion, supabase?: DbClient): Promise<StructuredAnswer> {
+  const { map } = await getActiveCampusMap(supabase ?? (await createClient()))
   return {
     status: "not_found",
     summary: notFoundSentence(question.target, question.language),

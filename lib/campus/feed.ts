@@ -8,10 +8,11 @@ import { getBranding } from "@/lib/branding"
 import type { FeedQuestion } from "@/lib/campus/feed-match"
 import { formatDate, formatTime, startOfTodayIso } from "@/lib/datetime"
 import { createClient } from "@/lib/supabase/server"
+import type { DbClient } from "@/lib/supabase/types"
 
 /** College codes ("CECT"), so questions naming a college are scoped to it. */
-export const getDepartmentCodes = cache(async (): Promise<string[]> => {
-  const supabase = await createClient()
+export const getDepartmentCodes = cache(async (client?: DbClient): Promise<string[]> => {
+  const supabase = client ?? (await createClient())
   const { data } = await supabase.from("departments").select("code")
   return (data ?? []).map((d) => d.code)
 })
@@ -43,8 +44,8 @@ function windowLabel(question: FeedQuestion, language: ReplyLanguage) {
  * the student's session, so RLS shows only what students may see. When a college
  * is named, its items are listed together with university-wide ones.
  */
-export async function answerFeedQuestion(question: FeedQuestion, language: ReplyLanguage): Promise<StructuredAnswer> {
-  const supabase = await createClient()
+export async function answerFeedQuestion(question: FeedQuestion, language: ReplyLanguage, client?: DbClient): Promise<StructuredAnswer> {
+  const supabase = client ?? (await createClient())
   const { timezone } = await getBranding()
   const now = new Date()
   const nowIso = now.toISOString()

@@ -2,6 +2,7 @@ import "server-only"
 
 import { formatSourceLabel } from "@/lib/rag/sources"
 import { createClient } from "@/lib/supabase/server"
+import type { DbClient } from "@/lib/supabase/types"
 
 export type HandbookPassage = {
   chunkId: string
@@ -22,8 +23,8 @@ export type HandbookPassage = {
  * so RLS limits public visitors to public documents. Only `ready` documents
  * are searched.
  */
-export async function searchHandbook(question: string, { limit = 5 }: { limit?: number } = {}) {
-  const supabase = await createClient()
+export async function searchHandbook(question: string, { limit = 5, supabase }: { limit?: number; supabase?: DbClient } = {}) {
+  supabase ??= await createClient()
   const { data, error } = await supabase.rpc("search_document_chunks", {
     query_text: question,
     match_count: limit,

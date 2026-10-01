@@ -63,7 +63,7 @@ export default async function LandingPage() {
                 <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
                   sign in
                 </Link>{" "}
-                for full {assistantName} access.
+                for full access.
               </span>
             </p>
           </div>
