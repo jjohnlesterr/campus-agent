@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { deleteDocument, reprocessDocument } from "@/app/admin/documents/actions"
 import { describeStatus, getDocumentStats } from "@/app/admin/documents/document-stats"
 import { DeleteButton } from "@/components/admin/delete-button"
+import { CreateSourceGuides } from "@/components/admin/create-source-guides"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -37,7 +38,7 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
   ])
   if (!doc) notFound()
 
-  const referenceOnly = isReferenceOnly(doc.document_type)
+  const referenceOnly = isReferenceOnly(doc.document_type, doc.mime_type)
   const isImage = doc.mime_type.startsWith("image/")
   const canReprocess = !referenceOnly && doc.mime_type === "application/pdf"
   const status = describeStatus(doc.status)
@@ -94,6 +95,10 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
         <p role="alert" className="mt-4 text-sm text-destructive">
           {doc.processing_error}
         </p>
+      )}
+
+      {doc.status === "ready" && doc.mime_type === "application/pdf" && stats.chunks > 0 && (
+        <CreateSourceGuides documentId={doc.id} />
       )}
 
       {isImage && signed?.signedUrl && (

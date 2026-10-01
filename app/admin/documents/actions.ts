@@ -10,12 +10,13 @@ import { MAX_SOURCE_BYTES, acceptedMimeTypes, detectMimeType, isReferenceOnly } 
 import { createClient } from "@/lib/supabase/server"
 
 const SOURCE_TYPES = ["handbook", "policy", "announcement", "calendar", "campus_map", "other"] as const
+const uploadPathSchema = z.string().regex(/^sources\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|png|jpg|webp)$/, "Invalid upload path.")
 
 const registerSchema = z.object({
   title: z.string().trim().min(2, "Enter a title.").max(200),
   sourceType: z.enum(SOURCE_TYPES),
   visibility: z.enum(["public", "authenticated"]),
-  filePath: z.string().regex(/^sources\/[0-9a-f-]{36}\.(pdf|png|jpg|webp)$/, "Invalid upload path."),
+  filePath: uploadPathSchema,
   fileName: z.string().trim().min(1).max(255),
   fileSize: z.number().int().positive().max(MAX_SOURCE_BYTES, "Files can be up to 25 MB."),
 })
@@ -23,17 +24,30 @@ const registerSchema = z.object({
 export type RegisterResult =
   | { ok: true; id: string; referenceOnly: true }
   | { ok: true; id: string; referenceOnly: false; pages: number; chunks: number }
-  | { ok: false; error: string }
+  | { ok: false; error: string; id?: string }
+
+/** Recover an abandoned upload, but never remove a file referenced by a source. */
+export async function discardUnregisteredSource(filePath: string) {
+  await requireAdmin()
+  if (!uploadPathSchema.safeParse(filePath).success) return false
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("documents").select("id").eq("file_path", filePath).maybeSingle()
+  if (error || data) return false
+  const { error: removalError } = await supabase.storage.from("documents").remove([filePath])
+  return !removalError
+}
 
 function revalidate() {
   revalidatePath("/admin/documents")
   revalidatePath("/admin")
+  revalidatePath("/admin/locations") // shows the newest Campus Map source
+  revalidatePath("/admin/knowledge")
 }
 
 /**
  * Called after the browser uploads the file to the private `documents` bucket.
  * Verifies the real file type, creates the source record, and — for text
- * sources — extracts and chunks the PDF for the assistant. Campus maps are
+ * sources — extracts and chunks the PDF for the assistant. Images are
  * stored as reference files only.
  */
 export async function registerSource(input: z.input<typeof registerSchema>): Promise<RegisterResult> {
@@ -43,24 +57,26 @@ export async function registerSource(input: z.input<typeof registerSchema>): Pro
   const { title, sourceType, visibility, filePath, fileName, fileSize } = parsed.data
 
   const supabase = await createClient()
+  const { data: existing, error: lookupError } = await supabase.from("documents").select("id").eq("file_path", filePath).maybeSingle()
+  if (lookupError) return { ok: false, error: "The source could not be checked. Please try again." }
+  if (existing) return { ok: false, id: existing.id, error: "This upload already has a source record. Check the Sources list before retrying." }
   const discard = async (error: string): Promise<RegisterResult> => {
-    await supabase.storage.from("documents").remove([filePath])
-    return { ok: false, error }
+    const removed = await discardUnregisteredSource(filePath)
+    return { ok: false, error: removed ? error : `${error} The file may still be in storage; ask an administrator to check abandoned uploads.` }
   }
 
   // Check the file's actual bytes, not its name or the browser-reported type.
-  const { data: file } = await supabase.storage.from("documents").download(filePath)
-  if (!file) return discard("The uploaded file could not be read. Please try again.")
+  const { data: file, error: downloadError } = await supabase.storage.from("documents").download(filePath)
+  if (downloadError || !file) return discard(`The uploaded file could not be read: ${downloadError?.message ?? "File not found"}.`)
+  if (file.size === 0 || file.size > MAX_SOURCE_BYTES || file.size !== fileSize) {
+    return discard("The stored file size is invalid or does not match the selected file. Choose a non-empty file up to 25 MB.")
+  }
   const mimeType = detectMimeType(new Uint8Array(await file.slice(0, 16).arrayBuffer()))
-  if (!mimeType || !acceptedMimeTypes(sourceType).includes(mimeType)) {
-    return discard(
-      isReferenceOnly(sourceType)
-        ? "Campus maps must be a PDF, PNG, JPEG or WebP file."
-        : "This source type needs a PDF with selectable text."
-    )
+  if (!mimeType || !acceptedMimeTypes().includes(mimeType)) {
+    return discard("Choose a valid PDF, PNG or JPG/JPEG image.")
   }
 
-  const referenceOnly = isReferenceOnly(sourceType)
+  const referenceOnly = isReferenceOnly(sourceType, mimeType)
   const { data: doc, error } = await supabase
     .from("documents")
     .insert({
@@ -70,22 +86,30 @@ export async function registerSource(input: z.input<typeof registerSchema>): Pro
       file_path: filePath,
       file_name: fileName,
       mime_type: mimeType,
-      file_size: fileSize,
+      file_size: file.size,
       // Reference files are ready as soon as they're stored; text sources are processed next.
       status: referenceOnly ? "ready" : "uploaded",
     })
     .select("id")
     .single()
-  if (error || !doc) return discard("The source could not be saved. Please try again.")
+  if (error || !doc) return discard(`The source record could not be saved: ${error?.message ?? "No record was returned"}.`)
 
   if (referenceOnly) {
     revalidate()
     return { ok: true, id: doc.id, referenceOnly: true }
   }
 
-  const result = await ingestDocument(doc.id)
+  let result
+  try {
+    result = await ingestDocument(doc.id)
+  } catch {
+    const message = "PDF processing was interrupted. The source was saved; open it from the Sources list and choose Reprocess."
+    const { error: statusError } = await supabase.from("documents").update({ status: "failed", processing_error: message }).eq("id", doc.id)
+    revalidate()
+    return { ok: false, id: doc.id, error: statusError ? `${message} Its processing status could not be updated.` : message }
+  }
   revalidate()
-  if (!result.ok) return { ok: false, error: result.error }
+  if (!result.ok) return { ok: false, id: doc.id, error: `${result.error} The source was saved; open it from the Sources list to reprocess or remove it.` }
   return { ok: true, id: doc.id, referenceOnly: false, pages: result.pages, chunks: result.chunks }
 }
 
@@ -94,7 +118,7 @@ export async function reprocessDocument(id: string) {
   await requireAdmin()
   const supabase = await createClient()
   const { data: doc } = await supabase.from("documents").select("document_type, mime_type").eq("id", id).single()
-  if (doc && !isReferenceOnly(doc.document_type) && doc.mime_type === "application/pdf") {
+  if (doc && !isReferenceOnly(doc.document_type, doc.mime_type) && doc.mime_type === "application/pdf") {
     await ingestDocument(id)
   }
   revalidate()
@@ -105,8 +129,9 @@ export async function deleteDocument(id: string) {
   await requireAdmin()
   const supabase = await createClient()
   const { data: doc } = await supabase.from("documents").select("file_path").eq("id", id).single()
-  if (doc) await supabase.storage.from("documents").remove([doc.file_path])
-  await supabase.from("documents").delete().eq("id", id) // chunks cascade
+  // Remove the record first: if that fails, the file stays and nothing is left broken.
+  const { error } = await supabase.from("documents").delete().eq("id", id) // chunks cascade; guides keep a null source
+  if (!error && doc) await supabase.storage.from("documents").remove([doc.file_path])
   revalidate()
   redirect("/admin/documents")
 }

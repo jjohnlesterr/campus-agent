@@ -12,7 +12,7 @@ export function EmptyState({
   children?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed px-6 py-10 sm:items-center sm:text-center">
+    <div data-slot="empty-state" className="flex flex-col items-start gap-3 rounded-lg border border-dashed px-6 py-10 sm:items-center sm:text-center">
       <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
       <div>
         <p className="font-medium">{title}</p>

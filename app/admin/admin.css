@@ -1,0 +1,123 @@
+/* Scoped to the admin console; student and public surfaces keep their styles. */
+
+/* Admin palette: light sky/blue-gray canvas, white surfaces, deep navy text, one
+   strong blue for actions, subtle green for success. Set on :root only while the
+   admin shell is mounted, so portalled dialogs and sheets use it too. */
+:root:has(.admin-shell) {
+  --canvas: oklch(0.972 0.011 240);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.24 0.07 264);
+  --card-foreground: oklch(0.24 0.07 264);
+  --popover-foreground: oklch(0.24 0.07 264);
+  --ink: oklch(0.24 0.07 264);
+  --primary: oklch(0.52 0.19 258);
+  --primary-foreground: oklch(0.99 0.005 255);
+  --muted: oklch(0.966 0.01 245);
+  --muted-foreground: oklch(0.49 0.035 256);
+  --accent: oklch(0.948 0.028 250);
+  --accent-foreground: oklch(0.42 0.16 258);
+  --secondary: oklch(0.955 0.014 248);
+  --secondary-foreground: oklch(0.3 0.07 262);
+  --border: oklch(0.912 0.012 250);
+  --input: oklch(0.87 0.016 250);
+  --ring: oklch(0.6 0.16 256);
+  --success: oklch(0.44 0.11 155);
+  --success-surface: oklch(0.965 0.035 155);
+  --success-border: oklch(0.86 0.06 155);
+  --attention: oklch(0.5 0.12 65);
+  --attention-surface: oklch(0.97 0.035 85);
+  --attention-border: oklch(0.87 0.07 80);
+}
+
+/* Restrained elevation for white surfaces on the canvas. */
+.admin-content .rounded-lg.border.bg-background {
+  box-shadow: 0 1px 2px oklch(0.3 0.05 260 / 0.05);
+}
+
+/* Published / Active read as success, not as a primary action. */
+.admin-shell [data-status="published"] {
+  border-color: var(--success-border);
+  background: var(--success-surface);
+  color: var(--success);
+}
+.admin-content [data-slot="page-header"] {
+  align-items: center;
+  gap: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.admin-content [data-slot="page-header"] h1 {
+  color: var(--ink);
+  font-size: clamp(1.5rem, 1.15rem + 1vw, 2rem);
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.admin-content [data-slot="page-header"] p {
+  margin-top: 0.5rem;
+  line-height: 1.65;
+}
+
+.admin-content [data-slot="empty-state"] {
+  align-items: center;
+  border: 0;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.admin-content [data-slot="empty-state"] > svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--primary);
+}
+
+.admin-content [data-slot="empty-state"] p + p {
+  line-height: 1.65;
+}
+
+.admin-content table {
+  min-width: 40rem;
+  line-height: 1.5;
+}
+
+.admin-content thead {
+  background: var(--muted);
+}
+
+.admin-content th {
+  padding: 1rem 1.5rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.admin-content td {
+  padding: 1rem 1.5rem;
+}
+
+.admin-content td > :is(a, span) + span {
+  margin-top: 0.25rem;
+}
+
+.admin-content tbody tr:hover {
+  background: color-mix(in oklch, var(--muted) 60%, var(--background));
+}
+
+.admin-content :is(button, a).group\/button {
+  min-height: 2.5rem;
+  padding-inline: 1rem;
+  border-radius: 0.375rem;
+}
+
+.admin-content :is(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 2.5rem;
+}
+
+.admin-content :is(input, textarea, select) {
+  max-width: 100%;
+}
+
+.admin-content td a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  border-radius: 2px;
+}

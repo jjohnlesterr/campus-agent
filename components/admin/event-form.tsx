@@ -24,7 +24,7 @@ export function EventForm({
   departments,
 }: {
   values: EventFormValues
-  departments: { id: string; name: string }[]
+  departments: { id: string; code: string; name: string }[]
 }) {
   const [state, formAction, pending] = useActionState(saveEvent, undefined)
   const e = state?.fieldErrors ?? {}
@@ -61,7 +61,7 @@ export function EventForm({
           <option value="">University-wide</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {d.code} — {d.name}
             </option>
           ))}
         </select>

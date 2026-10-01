@@ -21,6 +21,7 @@ const announcementSchema = z.object({
 
 function revalidate() {
   revalidatePath("/admin/announcements")
+  revalidatePath("/admin")
   revalidatePath("/app/announcements")
 }
 

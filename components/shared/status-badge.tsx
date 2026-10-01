@@ -11,6 +11,7 @@ const STYLES: Record<string, string> = {
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   return (
     <span
+      data-status={status}
       className={cn(
         "inline-flex items-center rounded-md border px-1.5 py-px text-xs font-medium",
         !label && "capitalize",

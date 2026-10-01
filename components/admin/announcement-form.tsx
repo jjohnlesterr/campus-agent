@@ -22,7 +22,7 @@ export function AnnouncementForm({
   departments,
 }: {
   values: AnnouncementFormValues
-  departments: { id: string; name: string }[]
+  departments: { id: string; code: string; name: string }[]
 }) {
   const [state, formAction, pending] = useActionState(saveAnnouncement, undefined)
   const e = state?.fieldErrors ?? {}
@@ -70,7 +70,7 @@ export function AnnouncementForm({
           <option value="">University-wide</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {d.code} — {d.name}
             </option>
           ))}
         </select>

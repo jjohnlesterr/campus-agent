@@ -26,6 +26,7 @@ const eventSchema = z.object({
 
 function revalidate() {
   revalidatePath("/admin/events")
+  revalidatePath("/admin")
   revalidatePath("/app/events")
 }
 

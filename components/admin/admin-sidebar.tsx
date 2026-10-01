@@ -1,100 +1,130 @@
 "use client"
 
-import {
-  Building2,
-  CalendarDays,
-  FileText,
-  LayoutDashboard,
-  Library,
-  LogOut,
-  Map as MapIcon,
-  Megaphone,
-  Settings,
-} from "lucide-react"
+import { CalendarDays, FileText, LayoutDashboard, Library, LogOut, Map as MapIcon, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-
-import { logout } from "@/app/(auth)/actions"
-import { Wordmark } from "@/components/shared/wordmark"
 import { cn } from "cn"
 
-const NAV = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/knowledge", label: "Knowledge Base", icon: Library },
-  { href: "/admin/documents", label: "Sources", icon: FileText },
-  { href: "/admin/events", label: "Events", icon: CalendarDays },
-  { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/admin/offices", label: "Offices", icon: Building2 },
-  { href: "/admin/locations", label: "Campus Map", icon: MapIcon },
+import { logout } from "@/app/(auth)/actions"
+import { Logo, LogoMark } from "@/components/shared/logo"
+
+const NAV_GROUPS = [
+  { id: "overview", label: "Overview", items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    id: "content",
+    label: "Content",
+    items: [
+      { href: "/admin/knowledge", label: "Knowledge Base", icon: Library },
+      { href: "/admin/documents", label: "Sources", icon: FileText },
+    ],
+  },
+  {
+    id: "campus",
+    label: "Campus Information",
+    items: [
+      { href: "/admin/events", label: "Events", icon: CalendarDays },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/admin/locations", label: "Campus Map", icon: MapIcon },
+    ],
+  },
+  {
+    id: "administration",
+    label: "Administration",
+    items: [
+      { href: "/admin/users", label: "Users", icon: Users },
+      { href: "/admin/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ]
 
-export function AdminSidebar({
-  assistantName,
-  userName,
-}: {
+const controlClass = "inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+
+export function AdminSidebar({ assistantName, userName, collapsed = false, onToggle, onNavigate }: {
   assistantName: string
   userName: string
+  collapsed?: boolean
+  onToggle?: () => void
+  onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  const isActive = (href: string) =>
-    href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`)
-
-  const itemClass = (active: boolean) =>
-    cn(
-      "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ink-foreground/60",
-      active
-        ? "bg-white/12 font-medium text-ink-foreground"
-        : "text-ink-muted hover:bg-white/6 hover:text-ink-foreground"
-    )
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-60 shrink-0 flex-col bg-ink text-ink-foreground">
-      <div className="flex h-14 items-center gap-2 border-b border-white/10 px-4">
-        <Wordmark name={assistantName} tone="inverse" className="text-[0.95rem]" />
-        <span className="rounded border border-white/20 px-1.5 py-px text-[0.68rem] font-medium tracking-wide text-ink-muted">
-          Admin
-        </span>
+    <div className="flex h-full min-h-0 flex-col border-r bg-background text-foreground">
+      <div className={cn("flex shrink-0 border-b", collapsed ? "flex-col items-center gap-2 px-2 py-3" : "min-h-16 items-center gap-2 px-4")}>
+        <Link
+          href="/admin"
+          onClick={onNavigate}
+          aria-label={`${assistantName} administration home`}
+          className={cn("rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring", !collapsed && "min-w-0 flex-1")}
+        >
+          {collapsed ? (
+            <LogoMark size={32} priority />
+          ) : (
+            <span className="flex flex-col gap-1">
+              <Logo alt="" priority className="h-6 w-auto max-w-full self-start" />
+              <span className="text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">Administration</span>
+            </span>
+          )}
+        </Link>
+        {onToggle && (
+          <button type="button" onClick={onToggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="admin-desktop-navigation" className={controlClass}>
+            {collapsed ? <PanelLeftOpen className="size-4" aria-hidden="true" /> : <PanelLeftClose className="size-4" aria-hidden="true" />}
+          </button>
+        )}
+        {onNavigate && (
+          <button type="button" onClick={onNavigate} aria-label="Close navigation" className={controlClass}>
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
-
-      <nav aria-label="Admin" className="flex-1 overflow-y-auto px-2 py-4">
-        <ul className="flex flex-col gap-0.5">
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active = isActive(href)
+      <nav id={onToggle ? "admin-desktop-navigation" : undefined} aria-label="Admin" className="flex-1 overflow-y-auto px-3 py-4">
+        <div className={cn("flex flex-col", collapsed ? "gap-3" : "gap-5")}>
+          {NAV_GROUPS.map((group) => {
+            // Mobile and desktop sidebars can both be in the DOM; keep label ids unique.
+            const labelId = `admin-nav-${group.id}${onToggle ? "" : "-mobile"}`
             return (
-              <li key={href}>
-                <Link href={href} aria-current={active ? "page" : undefined} className={itemClass(active)}>
-                  <Icon className="size-4 shrink-0" aria-hidden="true" />
-                  {label}
-                </Link>
-              </li>
+              <div key={group.id}>
+                <p id={labelId} className={collapsed ? "sr-only" : "mb-1.5 px-3 text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase"}>
+                  {group.label}
+                </p>
+                <ul aria-labelledby={labelId} className="flex flex-col gap-0.5">
+                  {group.items.map(({ href, label, icon: Icon }) => {
+                    const active = href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`)
+                    return (
+                      <li key={href}>
+                        <Link href={href} onClick={onNavigate} title={collapsed ? label : undefined} aria-current={active ? "page" : undefined} className={cn(
+                          "flex min-h-9 items-center gap-3 rounded-md text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          collapsed ? "justify-center px-2" : "px-3",
+                          active ? "bg-accent font-semibold text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}>
+                          <Icon className="size-4 shrink-0" aria-hidden="true" />
+                          <span className={collapsed ? "sr-only" : ""}>{label}</span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             )
           })}
-        </ul>
-      </nav>
-
-      <div className="border-t border-white/10 px-2 py-3">
-        <Link
-          href="/admin/settings"
-          aria-current={isActive("/admin/settings") ? "page" : undefined}
-          className={itemClass(isActive("/admin/settings"))}
-        >
-          <Settings className="size-4 shrink-0" aria-hidden="true" />
-          Settings
-        </Link>
-        <div className="mt-2 flex items-center justify-between gap-2 px-3">
-          <span className="truncate text-xs text-ink-muted">{userName}</span>
-          <form action={logout}>
-            <button
-              type="submit"
-              aria-label="Sign out"
-              title="Sign out"
-              className="inline-flex size-8 items-center justify-center rounded-md text-ink-muted transition-colors outline-none hover:bg-white/8 hover:text-ink-foreground focus-visible:ring-2 focus-visible:ring-ink-foreground/60"
-            >
-              <LogOut className="size-4" aria-hidden="true" />
-            </button>
-          </form>
         </div>
+      </nav>
+      <div className={cn("flex shrink-0 items-center border-t py-3", collapsed ? "flex-col gap-2 px-2" : "gap-3 px-4")}>
+        <span aria-hidden="true" title={collapsed ? userName : undefined} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
+          {userName.trim().charAt(0).toUpperCase() || "A"}
+        </span>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium" title={userName}>{userName}</p>
+            <p className="text-xs text-muted-foreground">Administrator</p>
+          </div>
+        )}
+        <form action={logout}>
+          <button type="submit" aria-label="Sign out" title="Sign out" className={controlClass}>
+            <LogOut className="size-4" aria-hidden="true" />
+          </button>
+        </form>
       </div>
-    </aside>
+    </div>
   )
 }

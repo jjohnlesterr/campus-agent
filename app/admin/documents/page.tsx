@@ -13,14 +13,16 @@ import { isReferenceOnly, sourceTypeLabel } from "@/lib/sources"
 import { createClient } from "@/lib/supabase/server"
 
 // Admin → Sources (route kept as /admin/documents; backed by the documents table).
-export default async function SourcesPage() {
+export default async function SourcesPage({ searchParams }: PageProps<"/admin/documents">) {
   await requireAdmin()
+  // Dashboard → Upload Source links here with ?upload=1 to open the upload dialog.
+  const { upload } = await searchParams
   const supabase = await createClient()
   const [{ timezone }, { data: sources }] = await Promise.all([
     getBranding(),
     supabase
       .from("documents")
-      .select("id, title, document_type, file_name, status, processing_error, created_at, document_chunks(count)")
+      .select("id, title, document_type, file_name, mime_type, status, processing_error, created_at, document_chunks(count)")
       .order("created_at", { ascending: false }),
   ])
   const rows = sources ?? []
@@ -32,14 +34,14 @@ export default async function SourcesPage() {
         description="Official files Campus Agent can rely on. Text from PDFs is extracted page by page so answers can cite the exact page."
       />
 
-      <SourceUploader defaultOpen={rows.length === 0} />
+      <SourceUploader defaultOpen={rows.length === 0 || upload === "1"} />
 
       <section aria-labelledby="sources-heading" className="mt-6 overflow-hidden rounded-lg border bg-background">
         <h2 id="sources-heading" className="border-b px-5 py-4 font-semibold">
           All sources
         </h2>
         {rows.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Sources table" tabIndex={0} className="admin-table-region overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
             <table className="w-full text-sm">
               <thead className="border-b text-left text-xs text-muted-foreground">
                 <tr>
@@ -58,9 +60,11 @@ export default async function SourcesPage() {
                   return (
                     <tr key={s.id} className="align-top hover:bg-muted/40">
                       <td className="px-5 py-3">
-                        <span className="font-medium">{s.title}</span>
+                        <Link href={`/admin/documents/${s.id}`} className="font-medium hover:text-primary hover:underline">
+                          {s.title}
+                        </Link>
                         <span className="block text-xs text-muted-foreground">
-                          {isReferenceOnly(s.document_type)
+                          {isReferenceOnly(s.document_type, s.mime_type)
                             ? "Reference file"
                             : chunks > 0
                               ? `${chunks} sections for the assistant`
