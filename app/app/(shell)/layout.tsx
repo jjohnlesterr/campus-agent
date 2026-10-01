@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation"
-
 import { StudentShell } from "@/components/student/student-shell"
 import { requireProfile } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
@@ -8,7 +6,6 @@ import { createClient } from "@/lib/supabase/server"
 
 export default async function StudentShellLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireProfile()
-  if (profile.role === "student" && !profile.onboarded_at) redirect("/app/onboarding")
 
   const supabase = await createClient()
   const [{ assistantName }, recentConversations, { data: program }] = await Promise.all([

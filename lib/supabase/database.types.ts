@@ -547,6 +547,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          must_change_password: boolean
           onboarded_at: string | null
           program_id: string | null
           role: Database["public"]["Enums"]["app_role"]
@@ -561,6 +562,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          must_change_password?: boolean
           onboarded_at?: string | null
           program_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -575,6 +577,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          must_change_password?: boolean
           onboarded_at?: string | null
           program_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -730,6 +733,8 @@ export type Database = {
         | "calendar"
         | "form"
         | "other"
+        | "announcement"
+        | "campus_map"
       event_status: "draft" | "published" | "cancelled"
       message_role: "user" | "assistant"
       publish_status: "draft" | "published" | "archived"
@@ -887,6 +892,8 @@ export const Constants = {
         "calendar",
         "form",
         "other",
+        "announcement",
+        "campus_map",
       ],
       event_status: ["draft", "published", "cancelled"],
       message_role: ["user", "assistant"],

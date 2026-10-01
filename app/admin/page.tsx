@@ -38,7 +38,7 @@ export default async function AdminDashboardPage() {
   const stats = [
     { label: "Published guides", value: published, href: "/admin/knowledge" },
     { label: "Draft guides", value: drafts, href: "/admin/knowledge" },
-    { label: "Ready documents", value: documents, href: "/admin/documents" },
+    { label: "Ready sources", value: documents, href: "/admin/documents" },
     { label: "Upcoming events", value: events, href: "/admin/events" },
     { label: "Active announcements", value: announcements, href: "/admin/announcements" },
     { label: "Offices", value: offices, href: "/admin/offices" },

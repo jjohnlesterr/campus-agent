@@ -8,10 +8,17 @@ import { createClient } from "@/lib/supabase/server"
 
 export type Profile = Tables<"profiles">
 
+export const CHANGE_PASSWORD_PATH = "/change-password"
+
 // Where each role lands after signing in. The role always comes from
 // profiles.role in the database — never from the login form or the URL.
 export function homePathFor(role: Profile["role"]) {
   return role === "admin" ? "/admin" : "/app"
+}
+
+/** Where a signed-in user should go next: change a temporary password first, then home. */
+export function nextPathFor(profile: Pick<Profile, "role" | "must_change_password">) {
+  return profile.must_change_password ? CHANGE_PASSWORD_PATH : homePathFor(profile.role)
 }
 
 // The signed-in user's profile, or null when signed out. getClaims() verifies
@@ -30,9 +37,14 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   return profile
 })
 
+/**
+ * Signed-in user with a usable account. Sends signed-out visitors to /login
+ * and users still on a temporary password to /change-password.
+ */
 export async function requireProfile() {
   const profile = await getCurrentProfile()
   if (!profile) redirect("/login")
+  if (profile.must_change_password) redirect(CHANGE_PASSWORD_PATH)
   return profile
 }
 

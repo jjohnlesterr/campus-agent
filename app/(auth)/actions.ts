@@ -1,34 +1,23 @@
 "use server"
 
-import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { z } from "zod"
 
-import { homePathFor } from "@/lib/auth"
+import { getCurrentProfile, nextPathFor } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
-export type AuthFormState = { error?: string; message?: string } | undefined
+// Accounts are provisioned by an administrator — there is no public sign-up.
+
+export type AuthFormState = { error?: string; fieldErrors?: Record<string, string> } | undefined
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email address."),
   password: z.string().min(1, "Enter your password."),
 })
 
-const signupSchema = z.object({
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(8, "Use at least 8 characters."),
-})
-
-function firstIssue(error: z.ZodError) {
-  return error.issues[0]?.message ?? "Check the form and try again."
-}
-
-export async function login(
-  _prev: AuthFormState,
-  formData: FormData
-): Promise<AuthFormState> {
+export async function login(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData))
-  if (!parsed.success) return { error: firstIssue(parsed.error) }
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." }
 
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data)
@@ -36,46 +25,55 @@ export async function login(
     return {
       error:
         error.code === "email_not_confirmed"
-          ? "Confirm your email first — check your inbox for the link."
+          ? "This account hasn't been activated yet. Contact your administrator."
           : "Incorrect email or password.",
     }
   }
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, must_change_password")
     .eq("id", data.user.id)
     .single()
 
-  redirect(homePathFor(profile?.role ?? "student"))
+  redirect(nextPathFor(profile ?? { role: "student", must_change_password: false }))
 }
 
-export async function signup(
-  _prev: AuthFormState,
-  formData: FormData
-): Promise<AuthFormState> {
-  const parsed = signupSchema.safeParse(Object.fromEntries(formData))
-  if (!parsed.success) return { error: firstIssue(parsed.error) }
-
-  const origin = (await headers()).get("origin")
-  const supabase = await createClient()
-  // Every new account is a student; the database ignores any role in signup data.
-  const { data, error } = await supabase.auth.signUp({
-    ...parsed.data,
-    options: { emailRedirectTo: `${origin}/auth/confirm` },
+const changePasswordSchema = z
+  .object({
+    password: z.string().min(8, "Use at least 8 characters.").max(72, "Use 72 characters or fewer."),
+    confirm: z.string(),
   })
-  if (error) {
-    return {
-      error:
-        error.code === "user_already_exists"
-          ? "An account with this email already exists. Sign in instead."
-          : "We couldn't create your account. Please try again.",
-    }
+  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match." })
+
+/**
+ * Replaces a temporary password. The password is changed in Supabase Auth only;
+ * a database trigger then clears profiles.must_change_password.
+ */
+export async function changePassword(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const profile = await getCurrentProfile()
+  if (!profile) redirect("/login")
+
+  const parsed = changePasswordSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] ??= issue.message
+    return { fieldErrors }
   }
 
-  // Email confirmation off: signed in immediately. On: wait for the email link.
-  if (data.session) redirect("/app/onboarding")
-  return { message: "Check your email for a confirmation link, then sign in." }
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
+  if (error) {
+    if (error.code === "same_password") {
+      return { fieldErrors: { password: "Choose a password different from your temporary password." } }
+    }
+    if (error.code === "weak_password") {
+      return { fieldErrors: { password: "This password is too weak. Try a longer one with letters and numbers." } }
+    }
+    return { error: "Your password could not be changed. Please try again." }
+  }
+
+  redirect(nextPathFor({ role: profile.role, must_change_password: false }))
 }
 
 export async function logout() {

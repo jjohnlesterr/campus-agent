@@ -21,7 +21,7 @@ import { cn } from "cn"
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/knowledge", label: "Knowledge Base", icon: Library },
-  { href: "/admin/documents", label: "Documents", icon: FileText },
+  { href: "/admin/documents", label: "Sources", icon: FileText },
   { href: "/admin/events", label: "Events", icon: CalendarDays },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/offices", label: "Offices", icon: Building2 },

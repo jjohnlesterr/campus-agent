@@ -163,16 +163,6 @@ export default async function LandingPage() {
               >
                 Sign in
               </Link>
-              <Link
-                href="/signup"
-                className={buttonVariants({
-                  variant: "ghost",
-                  size: "lg",
-                  className: "px-4 text-ink-foreground hover:bg-white/10 hover:text-ink-foreground",
-                })}
-              >
-                Create an account
-              </Link>
             </div>
           </div>
         </section>
