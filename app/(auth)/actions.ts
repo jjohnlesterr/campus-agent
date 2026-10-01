@@ -16,15 +16,25 @@ const loginSchema = z.object({
 })
 
 export async function login(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
-  const parsed = loginSchema.safeParse(Object.fromEntries(formData))
+  const parsed = loginSchema.safeParse({
+    email: String(formData.get("email") ?? "").trim(),
+    password: String(formData.get("password") ?? ""),
+  })
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." }
+  const { email, password } = parsed.data
 
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data)
-  if (error) {
+  let { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  // Temporary passwords are often copied with a stray space or line break. The exact
+  // password is always tried first, so passwords that really contain spaces still work.
+  const trimmed = password.trim()
+  if (error?.code === "invalid_credentials" && trimmed && trimmed !== password) {
+    ;({ data, error } = await supabase.auth.signInWithPassword({ email, password: trimmed }))
+  }
+  if (error || !data.user) {
     return {
       error:
-        error.code === "email_not_confirmed"
+        error?.code === "email_not_confirmed"
           ? "This account hasn't been activated yet. Contact your administrator."
           : "Incorrect email or password.",
     }
