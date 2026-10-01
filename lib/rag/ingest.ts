@@ -22,11 +22,11 @@ const INSERT_BATCH = 100
 export async function ingestDocument(documentId: string): Promise<IngestResult> {
   const supabase = await createClient()
   const fail = async (error: string): Promise<IngestResult> => {
-    await supabase
+    const { error: statusError } = await supabase
       .from("documents")
       .update({ status: "failed", processing_error: error })
       .eq("id", documentId)
-    return { ok: false, error }
+    return { ok: false, error: statusError ? `${error} The failed status could not be saved.` : error }
   }
 
   const { data: doc } = await supabase
@@ -36,10 +36,13 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
     .single()
   if (!doc) return { ok: false, error: "Document not found." }
 
-  await supabase
+  const { data: processing, error: processingError } = await supabase
     .from("documents")
     .update({ status: "processing", processing_error: null })
     .eq("id", documentId)
+    .select("id")
+    .single()
+  if (processingError || !processing) return fail("The source could not be marked as processing.")
 
   const { data: file, error: downloadError } = await supabase.storage
     .from("documents")
@@ -91,7 +94,8 @@ export async function ingestDocument(documentId: string): Promise<IngestResult> 
   // Ready = searchable. The MVP uses full-text search over chunk text, so a
   // document is ready once its chunks are saved; embeddings are optional.
   const embedded = embeddings ? rows.length : 0
-  await supabase.from("documents").update({ status: "ready", processing_error: null }).eq("id", documentId)
+  const { data: ready, error: readyError } = await supabase.from("documents").update({ status: "ready", processing_error: null }).eq("id", documentId).select("id").single()
+  if (readyError || !ready) return fail("The text was saved, but the source could not be marked Ready. Please reprocess it.")
 
   return { ok: true, pages: pages.length, chunks: rows.length, embedded }
 }

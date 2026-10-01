@@ -11,6 +11,12 @@ export type AnswerSource = {
   sectionTitle: string | null
 }
 
+/** Location answers: which numbered map buildings they refer to, and whether a map can be shown. */
+export type LocationInfo = {
+  buildingNumbers: number[]
+  mapAvailable: boolean
+}
+
 export type StructuredAnswer = {
   status: AnswerStatus
   /** One or two sentences that directly answer the question. */
@@ -24,6 +30,10 @@ export type StructuredAnswer = {
   /** What the source does not cover, if anything. */
   gaps: string
   sources: AnswerSource[]
+  /** Present only on campus location answers. */
+  location?: LocationInfo
+  /** A follow-up page for structured answers, e.g. "View all events" → /app/events. */
+  link?: { label: string; href: string }
 }
 
 /** Plain Markdown version of an answer (stored as messages.content). */

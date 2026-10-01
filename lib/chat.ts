@@ -1,9 +1,25 @@
 import "server-only"
 
-import type { StructuredAnswer } from "@/lib/ai/answer-types"
+import type { LocationInfo, StructuredAnswer } from "@/lib/ai/answer-types"
 import type { ChatMessage, RecentConversation } from "@/lib/ai/chat-types"
 import type { Json } from "@/lib/supabase/database.types"
 import { createClient } from "@/lib/supabase/server"
+
+function toLocation(value: unknown): LocationInfo | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const v = value as Record<string, unknown>
+  return {
+    buildingNumbers: Array.isArray(v.buildingNumbers) ? v.buildingNumbers.filter((n): n is number => typeof n === "number") : [],
+    mapAvailable: v.mapAvailable === true,
+  }
+}
+
+function toLink(value: unknown): StructuredAnswer["link"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const v = value as Record<string, unknown>
+  // Only in-app links are rendered.
+  return typeof v.label === "string" && typeof v.href === "string" && v.href.startsWith("/app/") ? { label: v.label, href: v.href } : undefined
+}
 
 function toAnswer(meta: Json | null): StructuredAnswer | null {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null
@@ -17,6 +33,8 @@ function toAnswer(meta: Json | null): StructuredAnswer | null {
     details: typeof m.details === "string" ? m.details : "",
     gaps: typeof m.gaps === "string" ? m.gaps : "",
     sources: Array.isArray(m.sources) ? (m.sources as StructuredAnswer["sources"]) : [],
+    location: toLocation(m.location),
+    link: toLink(m.link),
   }
 }
 
