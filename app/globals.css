@@ -91,6 +91,24 @@
   --ink-muted: oklch(0.76 0.03 258);
 }
 
+/* Public landing, sign-in and student app: white / light sky-blue canvas, deep navy
+   type and the Campus Agent blue from the logo. Applies only while those are mounted
+   (the admin console sets the same palette in app/admin/admin.css). */
+:root:has(.landing-page),
+:root:has(.auth-page),
+:root:has(.student-shell) {
+  --canvas: oklch(0.975 0.012 238);
+  --foreground: oklch(0.24 0.07 264);
+  --primary: oklch(0.52 0.19 258);
+  --primary-foreground: oklch(0.99 0.005 255);
+  --muted-foreground: oklch(0.49 0.035 256);
+  --accent: oklch(0.948 0.028 250);
+  --accent-foreground: oklch(0.42 0.16 258);
+  --border: oklch(0.912 0.012 250);
+  --input: oklch(0.87 0.016 250);
+  --ring: oklch(0.6 0.16 256);
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
