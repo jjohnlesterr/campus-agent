@@ -25,7 +25,7 @@ export default async function ProfilePage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <PageHeader
         title="Your profile"
         description="Your college and program help Campus Agent show the most relevant information first."

@@ -1,7 +1,33 @@
-import { CircleAlert, FileText, Info } from "lucide-react"
+import { ArrowRight, CircleAlert, FileText, Info, Map as MapIcon } from "lucide-react"
+import Link from "next/link"
 
 import { SimpleMarkdown } from "@/components/assistant/simple-markdown"
-import type { StructuredAnswer } from "@/lib/ai/answer-types"
+import { buttonVariants } from "@/components/ui/button"
+import type { LocationInfo, StructuredAnswer } from "@/lib/ai/answer-types"
+
+/** Opens the student Campus Map, scrolled to the building when there is just one. */
+function CampusMapLink({ location }: { location?: LocationInfo }) {
+  if (!location?.mapAvailable) return null
+  const [only] = location.buildingNumbers
+  const href = location.buildingNumbers.length === 1 ? `/app/map#building-${only}` : "/app/map"
+  return (
+    <Link href={href} className={buttonVariants({ variant: "outline", className: "self-start" })}>
+      <MapIcon aria-hidden="true" />
+      View Campus Map
+    </Link>
+  )
+}
+
+/** In-app follow-up page for structured answers ("View all events"). */
+function AnswerLink({ link }: { link?: StructuredAnswer["link"] }) {
+  if (!link || !link.href.startsWith("/app/")) return null
+  return (
+    <Link href={link.href} className={buttonVariants({ variant: "outline", className: "self-start" })}>
+      {link.label}
+      <ArrowRight aria-hidden="true" />
+    </Link>
+  )
+}
 
 // Renders a Campus Agent answer: summary, steps, requirements, details,
 // what the handbook doesn't cover, and the source line.
@@ -16,10 +42,14 @@ export function AnswerView({ answer }: { answer: StructuredAnswer }) {
   }
   if (answer.status === "not_found") {
     return (
-      <p className="flex items-start gap-2">
-        <Info className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        {answer.summary}
-      </p>
+      <div className="flex flex-col gap-3">
+        <p className="flex items-start gap-2">
+          <Info className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {answer.summary}
+        </p>
+        <CampusMapLink location={answer.location} />
+        <AnswerLink link={answer.link} />
+      </div>
     )
   }
 
@@ -82,6 +112,9 @@ export function AnswerView({ answer }: { answer: StructuredAnswer }) {
           </p>
         </div>
       )}
+
+      <CampusMapLink location={answer.location} />
+      <AnswerLink link={answer.link} />
 
       {answer.sources.length > 0 && (
         <p className="flex items-start gap-2 border-t pt-3 text-sm text-muted-foreground">

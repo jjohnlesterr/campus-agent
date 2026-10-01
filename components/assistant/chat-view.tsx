@@ -7,7 +7,7 @@ import { askCampusAgent } from "@/app/app/(shell)/chat/actions"
 import { AnswerView } from "@/components/assistant/answer-view"
 import { QuestionComposer } from "@/components/assistant/question-composer"
 import { SimpleMarkdown } from "@/components/assistant/simple-markdown"
-import { Wordmark } from "@/components/shared/wordmark"
+import { LogoMark } from "@/components/shared/logo"
 import type { ChatMessage } from "@/lib/ai/chat-types"
 
 const ANSWER_PARTS = [
@@ -67,43 +67,46 @@ export function ChatView({
   const busy = pendingQuestion !== null
   const empty = messages.length === 0 && !busy
 
+  // The chat is the focused workspace: it sits on white rather than the shell's canvas.
   if (empty) {
     return (
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:py-16">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-[2.1rem]">
-          {firstName ? `What do you need help with, ${firstName}?` : "What do you need help with?"}
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Ask about enrollment, grades, documents, transfers, or other school procedures.
-        </p>
-        <div className="mt-8">
-          <QuestionComposer
-            size="large"
-            autoFocus
-            placeholder={`Ask ${assistantName}…`}
-            suggestions={suggestions}
-            onAsk={ask}
-            busy={busy}
-          />
-        </div>
-        {error && <ErrorNote message={error} />}
-        <div className="mt-12 border-t pt-6">
-          <p className="text-sm font-medium">Every answer is built to show</p>
-          <ul className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
-            {ANSWER_PARTS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-start gap-2">
-                <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                {label}
-              </li>
-            ))}
-          </ul>
+      <div className="flex flex-1 flex-col bg-background">
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:py-16">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-[2.1rem]">
+            {firstName ? `What do you need help with, ${firstName}?` : "What do you need help with?"}
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Ask about enrollment, grades, documents, transfers, or other school procedures.
+          </p>
+          <div className="mt-8">
+            <QuestionComposer
+              size="large"
+              autoFocus
+              placeholder={`Ask ${assistantName}…`}
+              suggestions={suggestions}
+              onAsk={ask}
+              busy={busy}
+            />
+          </div>
+          {error && <ErrorNote message={error} />}
+          <div className="mt-12 border-t pt-6">
+            <p className="text-sm font-medium">Every answer is built to show</p>
+            <ul className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+              {ANSWER_PARTS.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-start gap-2">
+                  <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-background">
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">
         <ol className="flex flex-col gap-8" aria-label="Conversation">
           {messages.map((m) => (
@@ -183,7 +186,7 @@ function Thinking({ assistantName }: { assistantName: string }) {
 function AssistantMark() {
   return (
     <span className="mt-0.5 shrink-0" aria-hidden="true">
-      <Wordmark name="" className="gap-0" />
+      <LogoMark size={22} />
     </span>
   )
 }

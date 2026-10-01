@@ -18,7 +18,7 @@ const PROMISES = [
 
 export default function HowItWorksPage() {
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <PageHeader
         title="How It Works"
         description="Campus Agent helps you understand official university processes and find the right office."

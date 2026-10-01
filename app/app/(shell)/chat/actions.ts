@@ -65,6 +65,8 @@ export async function askCampusAgent(conversationId: string | null, question: st
     details: result.details,
     gaps: result.gaps,
     sources: result.sources,
+    ...(result.location && { location: result.location }),
+    ...(result.link && { link: result.link }),
   }
 
   const { data: assistantRow, error: assistantError } = await supabase

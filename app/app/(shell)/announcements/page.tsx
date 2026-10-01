@@ -38,7 +38,7 @@ export default async function AnnouncementsPage({ searchParams }: PageProps<"/ap
   const { data: announcements } = await query
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <PageHeader title="Announcements" description="Official notices from the university and its colleges.">
         <DepartmentFilterSelect
           value={filterValue(filter)}

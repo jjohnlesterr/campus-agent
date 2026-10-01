@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  Building2,
   CalendarDays,
   CircleHelp,
   LogOut,
@@ -16,13 +15,14 @@ import { usePathname } from "next/navigation"
 import { useState } from "react"
 
 import { logout } from "@/app/(auth)/actions"
-import { Wordmark } from "@/components/shared/wordmark"
+import { Logo } from "@/components/shared/logo"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "cn"
 
+// Offices is not listed: location questions are answered from the campus map
+// legend, and /app/offices and the office records remain available.
 const NAV = [
   { href: "/app/guides", label: "School Guides", icon: BookOpen },
-  { href: "/app/offices", label: "Offices", icon: Building2 },
   { href: "/app/events", label: "Events", icon: CalendarDays },
   { href: "/app/announcements", label: "Announcements", icon: Megaphone },
   { href: "/app/map", label: "Campus Map", icon: MapIcon },
@@ -46,15 +46,15 @@ export function StudentShell({
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <div className="flex min-h-dvh flex-1 lg:grid lg:grid-cols-[16.5rem_1fr]">
+    <div className="student-shell flex min-h-dvh flex-1 lg:grid lg:grid-cols-[16rem_1fr]">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-sidebar text-sidebar-foreground lg:flex">
+      <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-background text-foreground lg:flex">
         <SidebarContent assistantName={assistantName} user={user} recent={recentConversations} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b bg-background/95 px-2 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b bg-background px-2 lg:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
               aria-label="Open menu"
@@ -62,7 +62,7 @@ export function StudentShell({
             >
               <Menu className="size-5" aria-hidden="true" />
             </SheetTrigger>
-            <SheetContent side="left" className="w-[18rem] gap-0 bg-sidebar p-0">
+            <SheetContent side="left" className="w-[18rem] max-w-[calc(100vw-2rem)] gap-0 bg-background p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               <SidebarContent
                 assistantName={assistantName}
@@ -72,8 +72,8 @@ export function StudentShell({
               />
             </SheetContent>
           </Sheet>
-          <Link href="/app" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <Wordmark name={assistantName} className="text-[0.95rem]" />
+          <Link href="/app" aria-label={`${assistantName} home`} className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <Logo alt="" priority className="h-6 w-auto" />
           </Link>
           <Link
             href="/app"
@@ -84,7 +84,7 @@ export function StudentShell({
           </Link>
         </header>
 
-        <main className="flex flex-1 flex-col">{children}</main>
+        <main className="flex flex-1 flex-col bg-[var(--canvas)]">{children}</main>
       </div>
     </div>
   )
@@ -111,13 +111,14 @@ function SidebarContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-14 shrink-0 items-center px-4">
+      <div className="flex h-16 shrink-0 items-center px-5">
         <Link
           href="/app"
           onClick={onNavigate}
+          aria-label={`${assistantName} home`}
           className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Wordmark name={assistantName} className="text-[0.95rem]" />
+          <Logo alt="" priority className="h-6 w-auto" />
         </Link>
       </div>
 
@@ -125,14 +126,14 @@ function SidebarContent({
         <Link
           href="/app"
           onClick={onNavigate}
-          className="flex h-9 items-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium shadow-[0_1px_2px_oklch(0.22_0.025_262/0.06)] transition-colors outline-none hover:border-ring/40 hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="flex h-9 items-center gap-2 rounded-md border border-primary/15 bg-accent px-3 text-sm font-semibold text-accent-foreground transition-colors outline-none hover:border-primary/30 hover:bg-[color-mix(in_oklch,var(--accent),var(--primary)_6%)] focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <SquarePen className="size-4 text-primary" aria-hidden="true" />
+          <SquarePen className="size-4" aria-hidden="true" />
           New conversation
         </Link>
       </div>
 
-      <nav aria-label="Student" className="mt-4 px-3">
+      <nav aria-label="Student" className="mt-3 px-3">
         <ul className="flex flex-col gap-0.5">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`)
@@ -143,16 +144,13 @@ function SidebarContent({
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "flex h-9 items-center gap-2.5 rounded-md px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                     active
-                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                      ? "bg-accent font-semibold text-accent-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  <Icon
-                    className={cn("size-4", active ? "text-primary" : "text-muted-foreground")}
-                    aria-hidden="true"
-                  />
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
                   {label}
                 </Link>
               </li>
@@ -161,8 +159,8 @@ function SidebarContent({
         </ul>
       </nav>
 
-      <section aria-labelledby="recent-heading" className="mt-6 min-h-0 flex-1 overflow-y-auto px-3">
-        <h2 id="recent-heading" className="px-3 text-xs font-medium text-muted-foreground">
+      <section aria-labelledby="recent-heading" className="mt-6 min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <h2 id="recent-heading" className="px-3 text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
           Recent conversations
         </h2>
         {recent.length > 0 ? (
@@ -178,10 +176,10 @@ function SidebarContent({
                     aria-current={active ? "page" : undefined}
                     title={c.title}
                     className={cn(
-                      "block truncate rounded-lg px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                      "block truncate rounded-md px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                       active
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+                        ? "bg-accent font-medium text-accent-foreground"
+                        : "text-foreground/80 hover:bg-muted hover:text-foreground"
                     )}
                   >
                     {c.title}
@@ -191,9 +189,7 @@ function SidebarContent({
             })}
           </ul>
         ) : (
-          <p className="mt-2 px-3 text-sm text-muted-foreground/90">
-            No conversations yet. Your questions will appear here.
-          </p>
+          <p className="mt-2 px-3 text-sm text-muted-foreground">No conversations yet.</p>
         )}
       </section>
 
@@ -202,11 +198,11 @@ function SidebarContent({
           href="/app/profile"
           onClick={onNavigate}
           aria-current={pathname === "/app/profile" ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <span
             aria-hidden="true"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
           >
             {initials || "?"}
           </span>
@@ -222,7 +218,7 @@ function SidebarContent({
             type="submit"
             aria-label="Sign out"
             title="Sign out"
-            className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <LogOut className="size-4" aria-hidden="true" />
           </button>
