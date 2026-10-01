@@ -58,7 +58,7 @@ export function PublicAsk({ suggestions }: { suggestions: string[] }) {
                 {turn.error}
               </p>
             ) : turn.answer ? (
-              <AnswerView answer={turn.answer} />
+              <AnswerView answer={turn.answer} variant="public" />
             ) : null}
           </div>
         </section>
