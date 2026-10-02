@@ -1,6 +1,7 @@
-import { ExternalLink, FileText, Map as MapIcon } from "lucide-react"
+import { ChevronLeft, ChevronRight, ExternalLink, FileText, Map as MapIcon } from "lucide-react"
 import Link from "next/link"
 
+import { RowsPerPage } from "@/components/admin/rows-per-page"
 import { EmptyState } from "@/components/shared/empty-state"
 import { PageHeader } from "@/components/shared/page-header"
 import { buttonVariants } from "@/components/ui/button"
@@ -10,20 +11,37 @@ import { formatDate } from "@/lib/datetime"
 import { getActiveCampusMap } from "@/lib/campus/locations"
 import { createClient } from "@/lib/supabase/server"
 
-export default async function AdminLocationsPage() {
+const PAGE_SIZES = [10, 20, 50]
+
+export default async function AdminLocationsPage({ searchParams }: PageProps<"/admin/locations">) {
   await requireAdmin()
   const supabase = await createClient()
-  const [{ timezone }, { map: activeMap, count: mapCount }, { data: locations }] = await Promise.all([
+  const params = await searchParams
+  const per = PAGE_SIZES.includes(Number(params.per)) ? Number(params.per) : PAGE_SIZES[0]
+  const requestedPage = Math.max(1, Math.floor(Number(params.page)) || 1)
+
+  const [{ timezone }, { map: activeMap, count: mapCount }, { count: total }] = await Promise.all([
     getBranding(),
     getActiveCampusMap(supabase),
-    // Official legend entries first, by building number; older unnumbered records last.
-    supabase
-      .from("campus_locations")
-      .select("id, name, building_name, building_number, floor, offices(name)")
-      .order("building_number", { nullsFirst: false })
-      .order("floor", { nullsFirst: true })
-      .order("name"),
+    supabase.from("campus_locations").select("id", { count: "exact", head: true }),
   ])
+  // Clamp to the last page, so pagination stays valid after records are added or removed.
+  const totalRows = total ?? 0
+  const pageCount = Math.max(1, Math.ceil(totalRows / per))
+  const page = Math.min(requestedPage, pageCount)
+  const from = (page - 1) * per
+
+  // Only this page's rows. Official legend entries first, by building number; older
+  // unnumbered records last; id keeps the order stable across pages.
+  const { data: locations } = await supabase
+    .from("campus_locations")
+    .select("id, name, building_name, building_number, floor, offices(name)")
+    .order("building_number", { nullsFirst: false })
+    .order("floor", { nullsFirst: true })
+    .order("name")
+    .order("id")
+    .range(from, from + per - 1)
+  const pageHref = (n: number) => `/admin/locations?per=${per}&page=${n}`
   // Private bucket: a short-lived signed link for admins.
   const { data: signed } = activeMap
     ? await supabase.storage.from("documents").createSignedUrl(activeMap.file_path, 60 * 60)
@@ -139,6 +157,43 @@ export default async function AdminLocationsPage() {
                 </tbody>
               </table>
             </div>
+          ) : null}
+          {locations && locations.length > 0 ? (
+            <nav aria-label="Location records pages" className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {from + 1}–{from + locations.length} of {totalRows}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <RowsPerPage id="locations-per-page" value={per} options={PAGE_SIZES} />
+                <div className="flex items-center gap-2">
+                  {page > 1 ? (
+                    <Link href={pageHref(page - 1)} scroll={false} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      <ChevronLeft aria-hidden="true" />
+                      Previous
+                    </Link>
+                  ) : (
+                    <button type="button" disabled className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      <ChevronLeft aria-hidden="true" />
+                      Previous
+                    </button>
+                  )}
+                  <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums" aria-current="page">
+                    Page {page} of {pageCount}
+                  </span>
+                  {page < pageCount ? (
+                    <Link href={pageHref(page + 1)} scroll={false} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      Next
+                      <ChevronRight aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <button type="button" disabled className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      Next
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </nav>
           ) : (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               No location records yet. They are created when an office location is set.

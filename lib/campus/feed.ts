@@ -46,15 +46,16 @@ function windowLabel(question: FeedQuestion, language: ReplyLanguage) {
  */
 export async function answerFeedQuestion(question: FeedQuestion, language: ReplyLanguage, client?: DbClient): Promise<StructuredAnswer> {
   const supabase = client ?? (await createClient())
-  const { timezone } = await getBranding()
   const now = new Date()
   const nowIso = now.toISOString()
 
-  let departmentId: string | null = null
-  if (question.department) {
-    const { data } = await supabase.from("departments").select("id").eq("code", question.department).maybeSingle()
-    departmentId = data?.id ?? null
-  }
+  // Branding and the college lookup are independent, so they run together.
+  const [{ timezone }, departmentId] = await Promise.all([
+    getBranding(),
+    question.department
+      ? supabase.from("departments").select("id").eq("code", question.department).maybeSingle().then(({ data }) => data?.id ?? null)
+      : Promise.resolve(null),
+  ])
   const scope = question.department ? `${question.department} ${language === "fil" ? "at" : "and"} university-wide` : ""
   const when = windowLabel(question, language)
   const viewAll = (path: string) => (question.department ? `${path}?dept=${encodeURIComponent(question.department)}` : `${path}?dept=all`)

@@ -11,10 +11,11 @@ import { selectClass } from "@/components/shared/form-field"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { formatDate } from "@/lib/datetime"
-import { referenceLabel } from "@/lib/knowledge/topics"
 import type { Tables } from "@/lib/supabase/database.types"
 
+// referenceLabel is computed on the server, so the zod-based reference parser isn't shipped to the browser.
 export type LibraryGuide = Pick<Tables<"guidelines">, "id" | "title" | "description" | "status" | "updated_at" | "source_reference"> & {
+  referenceLabel: string
   documents: { title: string } | null
   guideline_steps: { count: number }[]
 }
@@ -127,7 +128,7 @@ function ScopedGuideLibrary({ guides, timezone, status, sort, source, loadError 
             <h2 className="mt-4 text-lg leading-snug font-semibold group-hover:text-primary">{guide.title}</h2>
             <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{guide.description || "Review this guide and add a short description."}</p>
             <div className="mt-5 flex flex-1 flex-col justify-end gap-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">{guide.documents?.title ?? "Source unavailable"} · {referenceLabel(guide.source_reference)}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{guide.documents?.title ?? "Source unavailable"} · {guide.referenceLabel}</p>
               <div className="flex items-center justify-between gap-3 border-t pt-4">
                 <span className="text-xs text-muted-foreground">{guide.guideline_steps[0]?.count ? `${guide.guideline_steps[0].count} steps` : "Information guide"}</span>
                 <Link href={`/admin/knowledge/${guide.id}`} className={cn(buttonVariants({ variant: "outline" }), "relative z-20")}>Review / Edit</Link>

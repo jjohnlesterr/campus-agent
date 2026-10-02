@@ -6,7 +6,7 @@ import { GuideLibrary } from "@/components/admin/guide-library"
 import { buttonVariants } from "@/components/ui/button"
 import { requireAdmin } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
-import { libraryOptions } from "@/lib/knowledge/topics"
+import { libraryOptions, referenceLabel } from "@/lib/knowledge/topics"
 import { createClient } from "@/lib/supabase/server"
 
 export default async function KnowledgeBasePage({ searchParams }: PageProps<"/admin/knowledge">) {
@@ -25,7 +25,7 @@ export default async function KnowledgeBasePage({ searchParams }: PageProps<"/ad
       <PageHeader title="Knowledge Base" description="Review source-backed guides before publishing them for students.">
         <Link href="/admin/documents" className={cn(buttonVariants({ variant: "outline", size: "lg" }))}>Open Sources</Link>
       </PageHeader>
-      <GuideLibrary guides={guides ?? []} timezone={timezone} status={status} sort={sort} source={source} loadError={!!error} />
+      <GuideLibrary guides={(guides ?? []).map((g) => ({ ...g, referenceLabel: referenceLabel(g.source_reference) }))} timezone={timezone} status={status} sort={sort} source={source} loadError={!!error} />
     </>
   )
 }

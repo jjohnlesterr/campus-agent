@@ -35,8 +35,8 @@ type Activity = { at: string; type: string; details: string; href: string; statu
 
 export default async function AdminDashboardPage() {
   const profile = await requireAdmin()
-  const supabase = await createClient()
-  const { timezone } = await getBranding()
+  // Branding loads alongside the client instead of before the dashboard queries.
+  const [supabase, { timezone }] = await Promise.all([createClient(), getBranding()])
   const now = new Date().toISOString()
   const weekAhead = new Date(new Date(now).getTime() + 7 * DAY_MS).toISOString()
 
