@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, CircleAlert, CircleCheck, Copy, KeyRound } from "lucide-react"
+import { Check, CircleCheck, Copy, Info, KeyRound } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useActionState, useState, useTransition } from "react"
@@ -192,32 +192,31 @@ function OneTimePassword({ value }: { value: string }) {
   )
 }
 
-/** Whether the sign-in email went out. Failures are stated plainly, never shown as success. */
-const EMAIL_FAILURE_REASON: Record<Exclude<EmailStatus, "sent">, string> = {
-  not_configured: "Email delivery isn't set up yet.",
-  domain_not_verified: "Resend can only send to this address after a sending domain is verified.",
-  failed: "The email service didn't accept the message.",
+/**
+ * Whether the sign-in email went out. The account change itself always succeeded, so a
+ * delivery failure is informational, and service details are never shown to the admin.
+ */
+const EMAIL_UNAVAILABLE: Record<Exclude<EmailStatus, "sent">, string> = {
+  not_configured: "Email delivery is unavailable in this demo environment.",
+  domain_not_verified: "Email delivery is unavailable in this demo environment.",
+  failed: "The sign-in email couldn't be delivered right now.",
 }
 
-function EmailStatusNote({ status, email, created }: { status: EmailStatus; email: string; created: boolean }) {
+function EmailStatusNote({ status, created }: { status: EmailStatus; created: boolean }) {
   if (status === "sent") {
     return (
       <p role="status" className="flex items-start gap-2 rounded-md border border-[var(--success-border)] bg-[var(--success-surface)] px-3 py-2 text-sm text-[var(--success)]">
         <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <span>
-          Email sent to <span className="font-medium break-all">{email}</span>
-        </span>
+        <span>Sign-in instructions were sent to the student&apos;s email.</span>
       </p>
     )
   }
   return (
-    <p role="alert" className="flex items-start gap-2 rounded-md border border-[var(--attention-border)] bg-[var(--attention-surface)] px-3 py-2 text-sm text-[var(--attention)]">
-      <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+    <p role="status" className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm text-foreground">
+      <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span>
-        <span className="font-medium">
-          {created ? "Student account created, but the email could not be sent." : "Password reset, but the email could not be sent."}
-        </span>{" "}
-        {EMAIL_FAILURE_REASON[status]} Copy the temporary password below and give it to the student.
+        {created ? "Student account created successfully." : "Temporary password reset successfully."}{" "}
+        {EMAIL_UNAVAILABLE[status]} Please copy the temporary password below and share it with the student.
       </span>
     </p>
   )
@@ -298,7 +297,7 @@ export function CreateStudentForm({
           </DialogHeader>
           {created && (
             <dl className="grid gap-3 px-6 py-5 text-sm">
-              <EmailStatusNote status={created.emailStatus} email={created.email} created />
+              <EmailStatusNote status={created.emailStatus} created />
               <div>
                 <dt className="text-xs text-muted-foreground">Email</dt>
                 <dd className="mt-0.5 font-medium break-all">{created.email}</dd>
@@ -379,7 +378,7 @@ export function ResetPasswordForm({ studentId, disabled }: { studentId: string; 
   if (state?.temporaryPassword) {
     return (
       <div className="flex max-w-xl flex-col gap-3">
-        <EmailStatusNote status={state.emailStatus} email={state.email} created={false} />
+        <EmailStatusNote status={state.emailStatus} created={false} />
         <p className="text-sm text-muted-foreground">
           New temporary password (shown only once). The student must change it on their next sign-in.
         </p>
