@@ -1,12 +1,8 @@
-import { logout } from "@/app/(auth)/actions"
+"use client"
+
+import { SignOutDialog } from "@/components/auth/sign-out-dialog"
 import { Button } from "@/components/ui/button"
 
 export function SignOutButton() {
-  return (
-    <form action={logout}>
-      <Button type="submit" variant="ghost" size="sm">
-        Sign out
-      </Button>
-    </form>
-  )
+  return <SignOutDialog trigger={<Button type="button" variant="ghost" size="sm">Sign out</Button>} />
 }

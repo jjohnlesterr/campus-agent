@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "cn"
 
-import { logout } from "@/app/(auth)/actions"
+import { SignOutDialog } from "@/components/auth/sign-out-dialog"
 import { Logo, LogoMark } from "@/components/shared/logo"
 
 const NAV_GROUPS = [
@@ -119,11 +119,14 @@ export function AdminSidebar({ assistantName, userName, collapsed = false, onTog
             <p className="text-xs text-muted-foreground">Administrator</p>
           </div>
         )}
-        <form action={logout}>
-          <button type="submit" aria-label="Sign out" title="Sign out" className={controlClass}>
-            <LogOut className="size-4" aria-hidden="true" />
-          </button>
-        </form>
+        <SignOutDialog
+          appName={assistantName}
+          trigger={
+            <button type="button" aria-label="Sign out" title="Sign out" className={controlClass}>
+              <LogOut className="size-4" aria-hidden="true" />
+            </button>
+          }
+        />
       </div>
     </div>
   )

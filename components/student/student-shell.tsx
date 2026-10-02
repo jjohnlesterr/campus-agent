@@ -14,7 +14,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 
-import { logout } from "@/app/(auth)/actions"
+import { SignOutDialog } from "@/components/auth/sign-out-dialog"
 import { Logo } from "@/components/shared/logo"
 import { ConversationActions } from "@/components/student/conversation-actions"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
@@ -222,16 +222,19 @@ function SidebarContent({
             )}
           </span>
         </Link>
-        <form action={logout}>
-          <button
-            type="submit"
-            aria-label="Sign out"
-            title="Sign out"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <LogOut className="size-4" aria-hidden="true" />
-          </button>
-        </form>
+        <SignOutDialog
+          appName={assistantName}
+          trigger={
+            <button
+              type="button"
+              aria-label="Sign out"
+              title="Sign out"
+              className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <LogOut className="size-4" aria-hidden="true" />
+            </button>
+          }
+        />
       </div>
     </div>
   )
