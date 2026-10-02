@@ -27,8 +27,10 @@ export function GuideEditor({ values, offices }: { values: GuideEditorValues; of
   const [reviewed, setReviewed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [busyAction, setBusyAction] = useState<"draft" | "published" | "unpublish" | null>(null)
   const updateStep = (index: number, field: keyof GuideStep, value: string) => setSteps(current => current.map((step, i) => i === index ? { ...step, [field]: value } : step))
   function save(intent: "draft" | "published") {
+    setBusyAction(intent)
     startTransition(async () => {
       setError(null)
       try {
@@ -63,11 +65,11 @@ export function GuideEditor({ values, offices }: { values: GuideEditorValues; of
       </fieldset>
       {error && <p role="alert" className="text-sm text-destructive">{error} <button type="button" onClick={() => window.location.reload()} className="font-medium underline">Reload saved guide</button></p>}
       <div className="flex flex-wrap gap-2 border-t pt-5">
-        <Button type="submit" variant="outline" size="lg" disabled={pending}>{pending ? "Saving…" : "Save draft"}</Button>
-        <Button type="button" size="lg" disabled={pending || !reviewed} onClick={() => save("published")}>Publish guide</Button>
-        {values.status === "published" && <Button type="button" variant="outline" size="lg" disabled={pending} onClick={() => startTransition(async () => {
+        <Button type="submit" variant="outline" size="lg" disabled={pending}>{pending && busyAction === "draft" ? "Saving…" : "Save draft"}</Button>
+        <Button type="button" size="lg" disabled={pending || !reviewed} onClick={() => save("published")}>{pending && busyAction === "published" ? "Publishing…" : "Publish guide"}</Button>
+        {values.status === "published" && <Button type="button" variant="outline" size="lg" disabled={pending} onClick={() => { setBusyAction("unpublish"); startTransition(async () => {
           try { const result = await unpublishGuide(values.id); if (!result.ok) setError(result.error); else { router.push("/admin/knowledge?status=draft"); router.refresh() } } catch { setError("The guide could not be unpublished. Please reload and try again.") }
-        })}>Unpublish</Button>}
+        }) }}>{pending && busyAction === "unpublish" ? "Unpublishing…" : "Unpublish"}</Button>}
         <Link href="/admin/knowledge" className={cn(buttonVariants({ variant: "ghost", size: "lg" }))}>Back to library</Link>
       </div>
     </form>

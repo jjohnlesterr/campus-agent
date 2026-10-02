@@ -6,8 +6,9 @@ import { describeStatus, getDocumentStats } from "@/app/admin/documents/document
 import { DeleteButton } from "@/components/admin/delete-button"
 import { CreateSourceGuides } from "@/components/admin/create-source-guides"
 import { PageHeader } from "@/components/shared/page-header"
+import { PendingSubmitButton } from "@/components/shared/pending-submit-button"
 import { StatusBadge } from "@/components/shared/status-badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { requireAdmin } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
 import { formatDate } from "@/lib/datetime"
@@ -73,10 +74,10 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
           )}
           {canReprocess && (
             <form action={reprocessDocument.bind(null, doc.id)}>
-              <Button type="submit" variant="outline" size="lg">
+              <PendingSubmitButton variant="outline" size="lg" pendingLabel="Reprocessing…">
                 <RefreshCw aria-hidden="true" />
                 Reprocess
-              </Button>
+              </PendingSubmitButton>
             </form>
           )}
           <DeleteButton action={deleteDocument.bind(null, doc.id)} label={doc.title} />

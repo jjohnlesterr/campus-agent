@@ -1,6 +1,6 @@
 "use client"
 
-import { Building2, CircleAlert, FileText, ListChecks } from "lucide-react"
+import { Building2, CircleAlert, FileText, ListChecks, LoaderCircle } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { askCampusAgent } from "@/app/app/(shell)/chat/actions"
@@ -182,16 +182,8 @@ function Thinking({ assistantName }: { assistantName: string }) {
       <AssistantMark />
       <div className="pt-1.5">
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="flex gap-1" aria-hidden="true">
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="size-1.5 animate-pulse rounded-full bg-primary/70"
-                style={{ animationDelay: `${i * 180}ms` }}
-              />
-            ))}
-          </span>
-          {assistantName} is checking the handbook…
+          <LoaderCircle className="size-4 shrink-0 text-primary/70 motion-safe:animate-spin" aria-hidden="true" />
+          {assistantName} is checking university sources…
         </p>
       </div>
     </div>
