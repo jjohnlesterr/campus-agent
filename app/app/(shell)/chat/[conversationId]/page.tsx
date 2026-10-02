@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { redirect } from "next/navigation"
 
 import { ChatView } from "@/components/assistant/chat-view"
 import { requireProfile } from "@/lib/auth"
@@ -11,9 +11,10 @@ export default async function ConversationPage({ params }: PageProps<"/app/chat/
     getBranding(),
     params,
   ])
-  // RLS only returns the student's own conversations.
+  // RLS only returns the student's own conversations. A deleted, foreign, or malformed id
+  // goes back to a new conversation instead of an error page.
   const data = /^[0-9a-f-]{36}$/i.test(conversationId) ? await getConversation(conversationId) : null
-  if (!data) notFound()
+  if (!data) redirect("/app")
 
   return (
     <ChatView

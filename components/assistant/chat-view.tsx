@@ -8,7 +8,7 @@ import { AnswerView } from "@/components/assistant/answer-view"
 import { QuestionComposer } from "@/components/assistant/question-composer"
 import { SimpleMarkdown } from "@/components/assistant/simple-markdown"
 import { LogoMark } from "@/components/shared/logo"
-import type { ChatMessage } from "@/lib/ai/chat-types"
+import { CONVERSATION_DELETED_EVENT, type ChatMessage } from "@/lib/ai/chat-types"
 
 const ANSWER_PARTS = [
   { icon: ListChecks, label: "Steps and requirements" },
@@ -35,6 +35,18 @@ export function ChatView({
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+
+  // The open conversation was deleted from the sidebar: start over as a new conversation.
+  useEffect(() => {
+    function onDeleted(event: Event) {
+      if ((event as CustomEvent<string>).detail !== activeConversationId) return
+      setActiveConversationId(null)
+      setMessages([])
+      setError(null)
+    }
+    window.addEventListener(CONVERSATION_DELETED_EVENT, onDeleted)
+    return () => window.removeEventListener(CONVERSATION_DELETED_EVENT, onDeleted)
+  }, [activeConversationId])
 
   useEffect(() => {
     if (messages.length || pendingQuestion) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })

@@ -16,6 +16,7 @@ import { useState } from "react"
 
 import { logout } from "@/app/(auth)/actions"
 import { Logo } from "@/components/shared/logo"
+import { ConversationActions } from "@/components/student/conversation-actions"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "cn"
 
@@ -44,12 +45,16 @@ export function StudentShell({
   children: React.ReactNode
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  // Hidden right away on delete, before the revalidated list arrives. Server order is kept.
+  const [deletedIds, setDeletedIds] = useState<string[]>([])
+  const recent = recentConversations.filter((c) => !deletedIds.includes(c.id))
+  const onDeleted = (id: string) => setDeletedIds((ids) => [...ids, id])
 
   return (
     <div className="student-shell flex min-h-dvh flex-1 lg:grid lg:grid-cols-[16rem_1fr]">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh flex-col border-r bg-background text-foreground lg:flex">
-        <SidebarContent assistantName={assistantName} user={user} recent={recentConversations} />
+        <SidebarContent assistantName={assistantName} user={user} recent={recent} onDeleted={onDeleted} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -67,7 +72,8 @@ export function StudentShell({
               <SidebarContent
                 assistantName={assistantName}
                 user={user}
-                recent={recentConversations}
+                recent={recent}
+                onDeleted={onDeleted}
                 onNavigate={() => setMenuOpen(false)}
               />
             </SheetContent>
@@ -94,11 +100,13 @@ function SidebarContent({
   assistantName,
   user,
   recent,
+  onDeleted,
   onNavigate,
 }: {
   assistantName: string
   user: ShellUser
   recent: ShellConversation[]
+  onDeleted: (id: string) => void
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
@@ -169,21 +177,22 @@ function SidebarContent({
               const href = `/app/chat/${c.id}`
               const active = pathname === href
               return (
-                <li key={c.id}>
+                <li key={c.id} className="group relative">
                   <Link
                     href={href}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     title={c.title}
                     className={cn(
-                      "block truncate rounded-md px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                      "block truncate rounded-md py-1.5 pr-9 pl-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                       active
                         ? "bg-accent font-medium text-accent-foreground"
-                        : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                        : "text-foreground/80 group-hover:bg-muted group-hover:text-foreground"
                     )}
                   >
                     {c.title}
                   </Link>
+                  <ConversationActions conversation={c} onDeleted={onDeleted} />
                 </li>
               )
             })}

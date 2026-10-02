@@ -88,3 +88,27 @@ export async function askCampusAgent(conversationId: string | null, question: st
     assistant: toChatMessage(assistantRow),
   }
 }
+
+/**
+ * Permanently deletes one of the signed-in student's conversations. Its messages
+ * go with it (ON DELETE CASCADE). Ownership is enforced by the user_id filter and
+ * by RLS, so another user's conversation is never touched.
+ */
+export async function deleteConversation(conversationId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const profile = await requireProfile()
+  if (!z.uuid().safeParse(conversationId).success) return { ok: false, error: "This conversation could not be deleted." }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("conversations")
+    .delete()
+    .eq("id", conversationId)
+    .eq("user_id", profile.id)
+  if (error) {
+    console.error("deleteConversation failed", error.code, error.message)
+    return { ok: false, error: "This conversation could not be deleted. Please try again." }
+  }
+
+  revalidatePath("/app", "layout") // refresh Recent conversations
+  return { ok: true }
+}
