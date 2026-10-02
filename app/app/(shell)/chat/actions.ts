@@ -34,12 +34,15 @@ export async function askCampusAgent(conversationId: string | null, question: st
 
   const supabase = await createClient()
   let id = parsed.data.conversationId
-  const isNew = !id
   if (id) {
-    // RLS: only the owner's conversation is visible.
+    // RLS: only the owner's conversation is visible. A conversation that isn't — e.g. a chat
+    // left open in another tab after signing in as a different account, or a deleted one —
+    // is never touched: the question starts a new conversation for the signed-in user instead.
     const { data } = await supabase.from("conversations").select("id").eq("id", id).maybeSingle()
-    if (!data) return { ok: false, error: "This conversation could not be found." }
-  } else {
+    if (!data) id = null
+  }
+  const isNew = !id
+  if (!id) {
     const { data, error } = await supabase
       .from("conversations")
       .insert({ user_id: profile.id, title: titleFrom(q) })

@@ -49,7 +49,10 @@ export function ChatView({
         setError(result.error)
         return false
       }
-      setMessages((m) => [...m, result.user, result.assistant])
+      // A new conversation started from an existing one (e.g. a stale tab after switching
+      // accounts) replaces the old messages instead of appending to them.
+      const switched = result.isNew && activeConversationId !== null
+      setMessages((m) => (switched ? [result.user, result.assistant] : [...m, result.user, result.assistant]))
       if (result.isNew) {
         setActiveConversationId(result.conversationId)
         // Update the address without re-rendering, so the chat stays in place.
