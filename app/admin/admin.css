@@ -121,3 +121,15 @@
   outline-offset: 4px;
   border-radius: 2px;
 }
+
+/* Pages marked data-layout="wide" (e.g. Sources → source details) use the full width
+   next to the sidebar instead of the 80rem column, with 32px side padding on desktop. */
+.admin-content:has([data-layout="wide"]) {
+  max-width: none;
+}
+
+@media (min-width: 64rem) {
+  .admin-content:has([data-layout="wide"]) {
+    padding-inline: 2rem;
+  }
+}

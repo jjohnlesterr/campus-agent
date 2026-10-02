@@ -57,7 +57,7 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
   ]
 
   return (
-    <>
+    <div data-layout="wide" className="w-full min-w-0">
       <PageHeader title={doc.title} description="Source details">
         <div className="flex flex-wrap gap-2">
           {signed?.signedUrl && (
@@ -135,7 +135,7 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
                     {c.section_title && <span>{c.section_title}</span>}
                     <span className="tabular-nums">~{Math.ceil(c.content.length / 4)} tokens</span>
                   </p>
-                  <p className="mt-2 line-clamp-4 max-w-prose text-sm leading-relaxed whitespace-pre-line">
+                  <p className="mt-2 line-clamp-4 text-sm leading-relaxed whitespace-pre-line">
                     {c.content}
                   </p>
                 </li>
@@ -146,6 +146,6 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
           )}
         </section>
       )}
-    </>
+    </div>
   )
 }
