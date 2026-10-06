@@ -1,7 +1,6 @@
 "use client"
 
-import { CircleAlert, CircleCheck, FileText, ImageIcon, LoaderCircle, Upload } from "lucide-react"
-import Link from "next/link"
+import { CircleAlert, FileText, ImageIcon, LoaderCircle, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useRef, useState } from "react"
 
@@ -25,7 +24,6 @@ import {
   PDF,
   SOURCE_TYPE_OPTIONS,
   formatFileSize,
-  isReferenceOnly,
 } from "@/lib/sources"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "cn"
@@ -35,13 +33,12 @@ type UploadType = "handbook" | "policy" | "announcement" | "calendar" | "campus_
 type Phase =
   | { kind: "idle" }
   | { kind: "uploading" }
-  | { kind: "processing" }
   | { kind: "error"; message: string }
 
 const IMAGE_ACCEPT = [".png", ".jpg", ".jpeg", ".webp", ...IMAGE_TYPES]
 
 /** The file's MIME type, falling back to its extension when the browser leaves it blank. */
-function mimeOf(file: File) {
+export function mimeOf(file: File) {
   if (file.type) return file.type === "image/jpg" ? "image/jpeg" : file.type
   const name = file.name.toLowerCase()
   if (name.endsWith(".pdf")) return PDF
@@ -57,7 +54,28 @@ function titleFromFileName(name: string) {
   return base ? base.charAt(0).toUpperCase() + base.slice(1) : ""
 }
 
-/** "Upload source" button + modal: Title, Source type, File. */
+/** Client-side checks before upload; the server re-checks the real bytes. */
+export function checkSourceFile(file: File, allowed: "any" | "pdf" | "image" = "any"): string | null {
+  const mime = mimeOf(file)
+  const isPdf = mime === PDF
+  const isImage = (IMAGE_TYPES as readonly string[]).includes(mime)
+  if (!isPdf && !isImage) return "Choose a PDF, PNG or JPG/JPEG image."
+  if (allowed === "pdf" && !isPdf) return "Choose a PDF file."
+  if (allowed === "image" && !isImage) return "Choose a PNG or JPG/JPEG image."
+  if (file.size === 0) return "This file is empty. Choose a file with content."
+  if (file.size > MAX_SOURCE_BYTES) return `This file is ${formatFileSize(file.size)}. Files can be up to 25 MB.`
+  return null
+}
+
+/** Uploads straight to the private documents bucket (admin-only by storage policy). */
+export async function uploadSourceFile(file: File): Promise<{ filePath: string } | { error: string }> {
+  const mime = mimeOf(file)
+  const filePath = `sources/${crypto.randomUUID()}.${EXTENSIONS[mime]}`
+  const { error } = await createClient().storage.from("documents").upload(filePath, file, { contentType: mime, upsert: false })
+  return error ? { error: `Upload failed: ${error.message}` } : { filePath }
+}
+
+/** "Upload PDF" button + modal: Title, Source type, File. PDFs are analyzed later, on request. */
 export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -67,13 +85,11 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
   const [visibility, setVisibility] = useState<"public" | "authenticated">("public")
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
-  const [notice, setNotice] = useState<{ message: string; id: string } | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: "idle" })
 
-  const busy = phase.kind === "uploading" || phase.kind === "processing"
-  const referenceOnly = isReferenceOnly(sourceType, file ? mimeOf(file) : undefined)
+  const busy = phase.kind === "uploading"
   const typeHint = file && mimeOf(file) !== PDF
-    ? "Images are stored as reference files; text is not extracted."
+    ? "Images are stored as reference files to view; text is not extracted."
     : SOURCE_TYPE_OPTIONS.find((o) => o.value === sourceType)?.hint
 
   function reset() {
@@ -90,17 +106,9 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
     if (!selected) return
     setFile(null)
     if (inputRef.current) inputRef.current.value = ""
-    const mime = mimeOf(selected)
-    if (mime !== PDF && !(IMAGE_TYPES as readonly string[]).includes(mime)) {
-      setPhase({ kind: "error", message: "Choose a PDF, PNG or JPG/JPEG image." })
-      return
-    }
-    if (selected.size === 0) {
-      setPhase({ kind: "error", message: "This file is empty. Choose a file with content." })
-      return
-    }
-    if (selected.size > MAX_SOURCE_BYTES) {
-      setPhase({ kind: "error", message: `This file is ${formatFileSize(selected.size)}. Files can be up to 25 MB.` })
+    const problem = checkSourceFile(selected)
+    if (problem) {
+      setPhase({ kind: "error", message: problem })
       return
     }
     if (!title.trim()) setTitle(titleFromFileName(selected.name))
@@ -112,29 +120,19 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
     e.preventDefault()
     if (!file) return setPhase({ kind: "error", message: "Choose a file to upload." })
     if (title.trim().length < 2) return setPhase({ kind: "error", message: "Enter a title (at least 2 characters)." })
-    const mime = mimeOf(file)
     let uploadedPath: string | null = null
 
     try {
-      setNotice(null)
-      // 1. Upload straight to the private documents bucket (admin-only by storage policy).
+      // 1. Upload the file; 2. verify it on the server and save the source (no processing yet).
       setPhase({ kind: "uploading" })
-      const filePath = `sources/${crypto.randomUUID()}.${EXTENSIONS[mime]}`
-      uploadedPath = filePath
-      const { error: uploadError } = await createClient()
-        .storage.from("documents")
-        .upload(filePath, file, { contentType: mime, upsert: false })
-      if (uploadError) {
-        return setPhase({ kind: "error", message: `Upload failed: ${uploadError.message}` })
-      }
-
-      // 2. Save the source; text PDFs are extracted and chunked on the server.
-      if (!referenceOnly) setPhase({ kind: "processing" })
+      const uploaded = await uploadSourceFile(file)
+      if ("error" in uploaded) return setPhase({ kind: "error", message: uploaded.error })
+      uploadedPath = uploaded.filePath
       const result = await registerSource({
         title: title.trim(),
         sourceType,
         visibility,
-        filePath,
+        filePath: uploaded.filePath,
         fileName: file.name,
         fileSize: file.size,
       })
@@ -142,27 +140,19 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
         router.refresh()
         return setPhase({ kind: "error", message: result.error })
       }
-
-      setNotice({
-        id: result.id,
-        message: result.referenceOnly
-          ? `“${title.trim()}” is stored as a reference file.`
-          : `“${title.trim()}” is ready: ${result.pages} pages split into ${result.chunks} sections for the assistant.`,
-      })
-      setOpen(false)
-      reset()
-      router.refresh() // show the new source in the list
+      // Open the new source: PDFs show Analyze with AI there.
+      router.push(`/admin/documents/${result.id}`)
     } catch {
       if (uploadedPath) {
         try { await discardUnregisteredSource(uploadedPath) } catch { /* Keep referenced files safe if recovery fails. */ }
       }
       router.refresh()
-      setPhase({ kind: "error", message: "The upload could not be completed. Check the Sources list before retrying; a saved PDF may need reprocessing." })
+      setPhase({ kind: "error", message: "The upload could not be completed. Check the Knowledge Library before retrying." })
     }
   }
 
   return (
-    <div className="mt-6">
+    <>
       <Dialog
         open={open}
         onOpenChange={(next) => {
@@ -173,13 +163,13 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
       >
         <DialogTrigger render={<Button size="lg" />}>
           <Upload aria-hidden="true" />
-          Upload source
+          Upload PDF
         </DialogTrigger>
 
         <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-lg" showCloseButton={!busy}>
           <DialogHeader className="border-b px-6 pt-5 pb-4">
             <DialogTitle className="text-base font-semibold">Upload source</DialogTitle>
-            <DialogDescription>PDF, PNG or JPG/JPEG. Up to 25 MB. Text-based PDFs are processed; images are stored as references.</DialogDescription>
+            <DialogDescription>PDF with selectable text, up to 25 MB. You can analyze it with AI after upload — nothing is published automatically. Campus maps can also be PNG or JPG images.</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={submit} className="flex flex-col gap-5 px-6 py-5" noValidate>
@@ -295,9 +285,7 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
             )}
             {busy && (
               <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
-                {phase.kind === "uploading"
-                  ? "Uploading the file…"
-                  : "Reading pages and splitting them into sections. Large files can take a minute."}
+                Uploading the file…
               </p>
             )}
 
@@ -305,19 +293,12 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
               <Button type="button" variant="outline" size="lg" disabled={busy} onClick={() => { setOpen(false); reset() }}>Cancel</Button>
               <Button type="submit" size="lg" disabled={busy || !file}>
                 {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
-                {phase.kind === "uploading" ? "Uploading…" : phase.kind === "processing" ? "Processing…" : "Upload"}
+                {busy ? "Uploading…" : "Upload"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      {notice && (
-        <p role="status" className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-          <CircleCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          {notice.message}
-          <Link href={`/admin/documents/${notice.id}`} className="font-medium text-primary underline">View source</Link>
-        </p>
-      )}
-    </div>
+    </>
   )
 }
