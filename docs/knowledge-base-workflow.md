@@ -1,35 +1,55 @@
-# Sources to Knowledge Base
+# Knowledge Library
 
-Open a Ready PDF source with stored extracted sections and choose **Create Knowledge Base guides**. Generation reads `document_chunks` only. It does not download or parse the PDF, run ingestion, call Claude, or create embeddings.
+Admin → **Knowledge Library** (`/admin/knowledge`) replaces the separate Sources and Knowledge Base pages. It lists **sources** (uploaded files, `documents`) and **manual entries** (knowledge sections with no file) as cards, with All / PDF Documents / Manual Entries / Published / Drafts / Archived tabs and search.
 
-Sections with the same normalized title are grouped across pages. Numbering, capitalization, and punctuation differences do not create separate topics. Each draft records the source document, topic key, original chunk IDs, and page numbers in the existing `source_reference` text column. No schema migration is needed.
+- Source = the original file (PDF, or an image such as the campus map).
+- Knowledge section = reviewed information, stored in `guidelines`. Sections extracted from a source keep `source_document_id` and their page references; manual entries have no source.
+- Only **Published** sections are used by Campus Agent. Draft and Archived sections, and every section of an archived source, are never retrieved.
 
-Descriptions are source excerpts. Explicit numbered instructions can populate steps, and an explicit Requirements heading can populate requirements. Unordered policy bullets are not converted into a procedure. A responsible office is assigned only when exactly one existing office is explicitly named. Missing procedures and requirements remain unspecified for admin review.
+## Routes
 
-Generation always creates Draft guides. Repeating it skips existing source/topic guides, including guides whose titles were manually changed. Stable slugs use the existing unique constraint to prevent duplicates during concurrent generation. There is no automatic regeneration or overwrite of edited content.
+| Route | Purpose |
+| --- | --- |
+| `/admin/knowledge` | Library (cards, tabs, search, Upload PDF, Create manually) |
+| `/admin/documents/[id]` | Source details: metadata, original file, AI overview, extracted sections |
+| `/admin/knowledge/[id]` | Review / edit one section (PDF page on the left, section on the right) |
+| `/admin/knowledge/new` | Create a manual entry |
+| `/admin/documents` | Redirects to the library (`?upload=1` opens the upload dialog) |
 
-The Knowledge Base has All, Published, and Draft filters, source filtering, and Newest first, Oldest first, and A–Z sorting. Sorting applies immediately. Each card opens Review / Edit; its independent checkbox selects the guide without opening it. Select all selects the current filtered results. Changing the filter, source, or sort clears the selection.
+## Workflow
 
-The bulk toolbar appears when guides are selected. Publish selected affects only selected Draft guides; Unpublish selected affects only selected Published guides. Mixed selections show both actions with eligible counts. Archived guides are excluded, and the server checks the current status to skip stale selections safely. Bulk publishing changes only status, preserves all content and references, and refreshes admin/student views. Successful actions clear selection and report the affected count; failures preserve selection for retry.
+1. **Upload PDF.** The file is verified by its bytes and saved as **Uploaded**. Nothing is extracted or published. Images and Campus Map files are Ready reference files.
+2. **Analyze with AI** (confirmation dialog). Runs the existing pipeline:
+   - text is extracted page by page and chunked (`lib/rag/ingest.ts`, status Processing → Ready/Failed);
+   - chunks are grouped into topics (`lib/knowledge/topics.ts`) and each new topic is saved as a **Draft** section whose `content` is the verbatim extracted text, with page references in `source_reference`;
+   - one Claude call (`lib/knowledge/analyze.ts`) writes an admin-only document summary and key topics, and suggests a category, a short summary and an office for each **new** Draft. An office is kept only when the section text names it. If Claude is unavailable, the Drafts are still created.
+3. **Review.** Each section opens beside the original PDF page. Admins edit title, category, page reference, summary, content, responsible office and optional School Guides requirements/steps. Publishing an AI-extracted section requires the review checkbox.
+4. **Publish** makes the section available to Campus Agent and School Guides. **Unpublish** moves it back to Draft; **Archive** hides it; archived sections restore as Draft. Only Draft/Archived sections can be deleted.
 
-Open Review / Edit for manual review and editing of the title, description, requirements, ordered steps, source pages, and supported responsible office beside the original excerpts. Publishing from the editor requires explicit review confirmation. Save draft and Unpublish keep a guide hidden from student queries.
+Manual entries (title, category, content, optional office and reference note, Draft or Published) work without a file.
 
-Saving stages the guide as Draft before saving steps; the final publish happens only after all writes succeed. A failed save leaves a recoverable Draft. This is not a multi-table transaction. Stale revision checks prevent an editor from saving over a newer version. Reload the saved guide after a partial failure to verify its persisted steps before publishing.
+Source actions: View PDF, Replace file, Analyze / Re-analyze, Archive (archives the source and all of its sections), Restore (sections stay Archived), Delete (only when no section is Published; its Draft/Archived sections are deleted with it).
 
-Student guide list and detail queries explicitly select only Published records; existing row-level security remains in place. The student shell and styling are unchanged.
+## Student retrieval
+
+`lib/rag/search.ts` calls `search_knowledge` (migration `20261006032400_knowledge_library.sql`): PostgreSQL full-text search over Published sections (title weighted above summary + content), under the caller's RLS, so public visitors only see Published + public sections. Citations use the source title and the section's pages (`Information WUP — Pages 1, 2`); manual entries cite their title and reference note. `private.knowledge_source_title` returns the source title for citations even while a source is being re-analyzed, and returns nothing for archived sources.
+
+The migration backfilled `content` for existing sections from their linked extracted text, so current answers keep the same wording and page citations. `search_document_chunks` is unused but kept for rollback.
+
+## Re-analysis safety (MVP)
+
+Re-analysis never modifies or deletes existing sections. Published sections keep answering from their stored content while the source is re-extracted, even if extraction fails. Only topics that do not exist yet are added as Drafts.
+
+**Known limitation / future improvement:** when an updated PDF changes the text of a topic that already has a section, re-analysis does not create a replacement Draft for it (topics are matched by title, and the existing unique slug allows one section per source topic). Admins update that section's content manually. Proper versioning would need a "replaces section" link and a draft-revision table; it was not added to avoid a risky schema change.
 
 ## Verification
 
 ```powershell
 npx.cmd next typegen
 npx.cmd tsc --noEmit
-node --test tests/knowledge-guides.test.mjs tests/source-upload.test.mjs
+npx.cmd eslint app components lib tests
+node --test tests/*.test.mjs
+npx.cmd next build
 ```
 
-The optional `CAMPUS_KB_SNAPSHOT` environment variable points to a local JSON fixture shaped as `{ source, chunks }`. It enables verification against a read-only snapshot of a current source. Database writes in these tests use an in-memory mock.
-
-The current Information-WUP.pdf snapshot contained 24 chunks and produced 18 draft topics in verification. Graduation Honors merged pages 1–2, Shifting / Transfer merged pages 2–3, Academic Rules merged pages 4–5, and Colleges and Academic Programs merged pages 7–8. Shifting / Transfer retained four explicitly numbered steps. The remaining topics include enrollment, INC, graduation clearance, leave of absence, scholarships, document requests, dress code, violations, academic terms, and calendar sections.
-
-Browser verification used temporary fixture routes and mocked generation responses. It covered status filters, A–Z sorting, desktop/mobile layouts, linked excerpts, step editing, the review gate, and repeated-generation feedback. Temporary routes were removed afterward. No live guides were created or published during verification; a dedicated admin test session was unavailable.
-
-Bulk publishing verification also used the actual library component in a temporary fixture route with mocked action responses. It checked filtered Select all, Clear selection, pointer/keyboard checkbox isolation, whole-card navigation, mixed-status action payloads, disabled controls during updates, selection retention after errors, selection clearing after success, immediate sorting with source/filter preservation, and desktop/mobile layouts. Regression tests exercise the real server action against the in-memory database, including status-only writes, source/content/reference preservation, stale selections, authentication, validation, and database failures.
+The optional `CAMPUS_KB_SNAPSHOT` environment variable points to a local JSON fixture shaped as `{ source, chunks }` for checking topic grouping against a snapshot of a real source. Database writes in tests use an in-memory mock; Claude is mocked.

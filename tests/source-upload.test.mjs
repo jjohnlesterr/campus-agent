@@ -62,7 +62,7 @@ function database(options = {}) {
     from: table => {
       let operation = 'select', value
       const query = {
-        select() { return query }, eq() { return query },
+        select() { return query }, eq() { return query }, neq() { return query }, in() { return query },
         insert(v) { operation = 'insert'; value = v; return query },
         update(v) { operation = 'update'; value = v; return query },
         delete() { operation = 'delete'; return query },
@@ -98,22 +98,41 @@ function database(options = {}) {
     '@/lib/supabase/server': { createClient: async () => db },
     '@/lib/rag/embeddings': { embeddingsAvailable: () => false },
   })
+  // Analysis is exercised here through its extraction step; draft creation and the
+  // Claude overview are covered by knowledge-guides.test.mjs.
+  const activeIngest = options.ingest ?? ingest
+  const analyze = { analyzeSource: async (_db, id) => {
+    const result = await activeIngest.ingestDocument(id)
+    return result.ok ? { ok: true, pages: result.pages, created: 0, skipped: 0, overview: false } : result
+  } }
   const actions = load('app/admin/documents/actions.ts', {
     'next/cache': { revalidatePath: () => {} }, 'next/navigation': { redirect: () => {} },
     '@/lib/auth': { requireAdmin: async () => { if (options.authError) throw new Error('Unauthorized') } },
-    '@/lib/rag/ingest': options.ingest ?? ingest, '@/lib/sources': sources,
+    '@/lib/knowledge/analyze': analyze, '@/lib/sources': sources,
     '@/lib/supabase/server': { createClient: async () => db },
   })
   const input = { title: 'Upload test', sourceType: 'policy', visibility: 'public', filePath: uploadPath, fileName: 'test.pdf', fileSize: blob.size }
   return { state, input, ...actions }
 }
 
-test('text PDF runs real extraction/chunking and stores page/section metadata before Ready', async () => {
+const sourceId = '12345678-1234-4234-8234-123456789abc'
+
+test('uploading a PDF only registers it: nothing is extracted until Analyze with AI', async () => {
   const { state, input, registerSource } = database()
   const result = await registerSource(input)
   assert.equal(result.ok, true)
+  assert.equal(result.referenceOnly, false)
+  assert.equal(state.doc.status, 'uploaded')
+  assert.equal(state.chunks.length, 0)
+  assert.deepEqual(state.updates, [])
+})
+
+test('Analyze with AI runs real extraction/chunking and stores page/section metadata before Ready', async () => {
+  const { state, input, registerSource, analyzeDocument } = database()
+  await registerSource(input)
+  const result = await analyzeDocument(sourceId)
+  assert.equal(result.ok, true)
   assert.equal(result.pages, 2)
-  assert.equal(result.chunks, 2)
   assert.deepEqual(state.updates, ['processing', 'ready'])
   assert.deepEqual(state.chunks.map(c => c.page_number), [1, 2])
   assert.deepEqual(state.chunks.map(c => c.section_title), ['ACADEMIC POLICIES', 'CAMPUS SERVICES'])
@@ -136,17 +155,18 @@ test('PNG and JPEG sources under Other are Ready without extraction', async () =
   }
 })
 
-test('a text-based Campus Map PDF also uses extraction', async () => {
+test('a Campus Map PDF is a Ready reference file right away (the map page uses it)', async () => {
   const { state, input, registerSource } = database()
   const result = await registerSource({ ...input, sourceType: 'campus_map' })
   assert.equal(result.ok, true)
-  assert.equal(result.referenceOnly, false)
-  assert.equal(state.chunks.length, 2)
+  assert.equal(state.doc.status, 'ready')
+  assert.equal(state.chunks.length, 0)
 })
 
-test('damaged PDF creates a failed record and never reports success', async () => {
-  const { state, input, registerSource } = database({ blob: new Blob(['%PDF-1.4\n%%EOF']) })
-  const result = await registerSource(input)
+test('analyzing a damaged PDF marks it failed and never reports success', async () => {
+  const { state, input, registerSource, analyzeDocument } = database({ blob: new Blob(['%PDF-1.4\n%%EOF']) })
+  assert.equal((await registerSource(input)).ok, true)
+  const result = await analyzeDocument(sourceId)
   assert.equal(result.ok, false)
   assert.equal(state.doc.status, 'failed')
   assert.equal(state.chunks.length, 0)
@@ -169,11 +189,11 @@ for (const [name, options] of [
   ['chunk persistence fails', { chunkError: { message: 'write failed' } }],
   ['Ready status update fails', { failStatus: 'ready' }],
   ['processing throws', { ingest: { ingestDocument: async () => { throw new Error('unexpected failure') } } }],
-]) test(`${name} leaves a recoverable failed source, never success`, async () => {
-  const { state, input, registerSource } = database(options)
-  const result = await registerSource(input)
+]) test(`${name} during analysis leaves a recoverable failed source, never success`, async () => {
+  const { state, input, registerSource, analyzeDocument } = database(options)
+  assert.equal((await registerSource(input)).ok, true)
+  const result = await analyzeDocument(sourceId)
   assert.equal(result.ok, false)
-  assert.equal(result.id, 'new-source')
   assert.equal(state.doc.status, 'failed')
   assert.deepEqual(state.removed, [])
 })
@@ -188,9 +208,12 @@ test('cleanup cannot remove referenced files or the existing handbook path', asy
   assert.equal(state.inserts, 1)
 })
 
-test('auth is still required for registration and cleanup', async () => {
-  const { state, input, registerSource, discardUnregisteredSource } = database({ authError: true })
+test('auth is still required for registration, analysis, archive, delete and cleanup', async () => {
+  const { state, input, registerSource, discardUnregisteredSource, analyzeDocument, archiveDocument, deleteDocument } = database({ authError: true })
   await assert.rejects(registerSource(input), /Unauthorized/)
+  await assert.rejects(analyzeDocument(sourceId), /Unauthorized/)
+  await assert.rejects(archiveDocument(sourceId), /Unauthorized/)
+  await assert.rejects(deleteDocument(sourceId), /Unauthorized/)
   await assert.rejects(discardUnregisteredSource(uploadPath), /Unauthorized/)
   assert.equal(state.inserts, 0)
   assert.deepEqual(state.removed, [])
