@@ -81,7 +81,7 @@ export default async function AdminDashboardPage() {
       at: d.created_at, type: "Source uploaded", details: d.title, href: `/admin/documents/${d.id}`, status: describeStatus(d.status),
     })),
     ...(guideRows.data ?? []).map((g) => ({
-      at: g.created_at, type: "Guide created", details: g.title, href: `/admin/knowledge/${g.id}`, status: { tone: g.status },
+      at: g.created_at, type: "Knowledge section created", details: g.title, href: `/admin/knowledge/${g.id}`, status: { tone: g.status },
     })),
     ...(eventRows.data ?? []).map((e) => ({
       at: e.created_at, type: "Event created", details: e.title, href: `/admin/events/${e.id}`, status: { tone: e.status },
@@ -96,20 +96,20 @@ export default async function AdminDashboardPage() {
   const firstName = profile.full_name?.trim().split(/\s+/)[0] || "Admin"
 
   const metrics: { label: string; value: number; note: string; href: string; icon: LucideIcon }[] = [
-    { label: "Published Guides", value: publishedGuides, note: "Visible to students", href: "/admin/knowledge?status=published", icon: Library },
-    { label: "Ready Sources", value: readySources, note: "Processed and available", href: "/admin/documents", icon: FileText },
+    { label: "Published Knowledge", value: publishedGuides, note: "Used by Campus Agent", href: "/admin/knowledge?tab=published", icon: Library },
+    { label: "Ready Sources", value: readySources, note: "Processed and available", href: "/admin/knowledge?tab=pdf", icon: FileText },
     { label: "Student Accounts", value: students, note: "Provisioned by admins", href: "/admin/users", icon: Users },
     { label: "Upcoming Events", value: upcomingEvents, note: "Published, next 7 days", href: "/admin/events", icon: CalendarDays },
   ]
 
   const actions: { label: string; detail: string; count: number; clear: string; tone: "attention" | "error"; href: string; icon: LucideIcon }[] = [
     {
-      label: "Draft guides awaiting publication",
+      label: "Draft sections awaiting review",
       detail: "Review and publish them so students can see them.",
       count: draftGuides,
-      clear: "No draft guides waiting",
+      clear: "No draft sections waiting",
       tone: "attention",
-      href: "/admin/knowledge?status=draft",
+      href: "/admin/knowledge?tab=draft",
       icon: Library,
     },
     {
@@ -118,7 +118,7 @@ export default async function AdminDashboardPage() {
       count: failedSources + pendingSources,
       clear: "All sources processed",
       tone: failedSources > 0 ? "error" : "attention",
-      href: "/admin/documents",
+      href: "/admin/knowledge?tab=pdf",
       icon: FileText,
     },
     {
@@ -136,7 +136,7 @@ export default async function AdminDashboardPage() {
 
   const quickActions: { label: string; detail: string; href: string; icon: LucideIcon }[] = [
     { label: "Add Student", detail: "Create an account with a temporary password", href: "/admin/users/new", icon: UserPlus },
-    { label: "Upload Source", detail: "Add a handbook, policy or campus map", href: "/admin/documents?upload=1", icon: FileUp },
+    { label: "Upload Source", detail: "Add a handbook, policy or campus map", href: "/admin/knowledge?upload=1", icon: FileUp },
     { label: "New Event", detail: "University-wide or for one college", href: "/admin/events/new", icon: CalendarPlus },
     { label: "New Announcement", detail: "Post a notice for students", href: "/admin/announcements/new", icon: Megaphone },
   ]

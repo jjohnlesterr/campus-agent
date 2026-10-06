@@ -54,8 +54,8 @@ export default async function AdminLocationsPage({ searchParams }: PageProps<"/a
         title="Campus Map"
         description="The official campus map students see when they ask where an office or building is."
       >
-        <Link href="/admin/documents" className={buttonVariants({ variant: "outline", size: "lg" })}>
-          Manage in Sources
+        <Link href="/admin/knowledge" className={buttonVariants({ variant: "outline", size: "lg" })}>
+          Manage in Knowledge Library
         </Link>
       </PageHeader>
 
@@ -105,8 +105,8 @@ export default async function AdminLocationsPage({ searchParams }: PageProps<"/a
             title="No campus map yet."
             description="Upload a Campus Map source to display it here."
           >
-            <Link href="/admin/documents" className={buttonVariants({ size: "lg" })}>
-              Go to Sources
+            <Link href="/admin/knowledge" className={buttonVariants({ size: "lg" })}>
+              Go to Knowledge Library
             </Link>
           </EmptyState>
         </div>

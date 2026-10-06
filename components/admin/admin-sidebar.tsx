@@ -1,6 +1,6 @@
 "use client"
 
-import { CalendarDays, FileText, LayoutDashboard, Library, LogOut, Map as MapIcon, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
+import { CalendarDays, LayoutDashboard, Library, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "cn"
@@ -8,14 +8,17 @@ import { cn } from "cn"
 import { SignOutDialog } from "@/components/auth/sign-out-dialog"
 import { Logo, LogoMark } from "@/components/shared/logo"
 
-const NAV_GROUPS = [
+type NavItem = { href: string; label: string; icon: typeof Library; also?: string[] }
+
+const NAV_GROUPS: { id: string; label: string; items: NavItem[] }[] = [
   { id: "overview", label: "Overview", items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }] },
   {
     id: "content",
     label: "Content",
     items: [
-      { href: "/admin/knowledge", label: "Knowledge Base", icon: Library },
-      { href: "/admin/documents", label: "Sources", icon: FileText },
+      // Source details live under /admin/documents/[id]; the campus map legend (/admin/locations)
+      // is opened from the Campus Map source, so both keep this item active.
+      { href: "/admin/knowledge", label: "Knowledge Library", icon: Library, also: ["/admin/documents", "/admin/locations"] },
     ],
   },
   {
@@ -24,7 +27,6 @@ const NAV_GROUPS = [
     items: [
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
-      { href: "/admin/locations", label: "Campus Map", icon: MapIcon },
     ],
   },
   {
@@ -88,8 +90,8 @@ export function AdminSidebar({ assistantName, userName, collapsed = false, onTog
                   {group.label}
                 </p>
                 <ul aria-labelledby={labelId} className="flex flex-col gap-0.5">
-                  {group.items.map(({ href, label, icon: Icon }) => {
-                    const active = href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`)
+                  {group.items.map(({ href, label, icon: Icon, also = [] }) => {
+                    const active = href === "/admin" ? pathname === href : [href, ...also].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
                     return (
                       <li key={href}>
                         <Link href={href} onClick={onNavigate} title={collapsed ? label : undefined} aria-current={active ? "page" : undefined} className={cn(
