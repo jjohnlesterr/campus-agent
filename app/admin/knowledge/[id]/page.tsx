@@ -1,49 +1,114 @@
+import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { z } from "zod"
+
 import { GuideEditor } from "@/components/admin/guide-editor"
-import { PageHeader } from "@/components/shared/page-header"
+import { SourcePagePreview } from "@/components/admin/source-page-preview"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { requireAdmin } from "@/lib/auth"
-import { readGuideReference, pageLabel, supportsOffice } from "@/lib/knowledge/topics"
+import { getBranding } from "@/lib/branding"
+import { formatDate } from "@/lib/datetime"
+import { readGuideReference } from "@/lib/knowledge/topics"
 import { createClient } from "@/lib/supabase/server"
 
-export default async function GuideEditPage({ params }: PageProps<"/admin/knowledge/[id]">) {
+// Knowledge Library → review / edit one knowledge section (AI-extracted or manual).
+export default async function SectionReviewPage({ params, searchParams }: PageProps<"/admin/knowledge/[id]">) {
   await requireAdmin()
   const { id } = await params
+  const { created } = await searchParams
   if (!z.uuid().safeParse(id).success) notFound()
   const db = await createClient()
-  const { data: guide, error } = await db.from("guidelines").select("*, documents(title, status), guideline_steps(step_number, title, description)").eq("id", id).maybeSingle()
-  if (error) throw new Error("The guide could not be loaded.")
-  if (!guide) notFound()
-  const ref = readGuideReference(guide.source_reference)
-  const [{ data: sections, error: sectionError }, { data: offices, error: officeError }] = await Promise.all([
-    guide.source_document_id && ref ? db.from("document_chunks").select("id, content, page_number, chunk_index, section_title").eq("document_id", guide.source_document_id).in("id", ref.chunkIds).order("chunk_index") : Promise.resolve({ data: [], error: null }),
-    db.from("offices").select("id, name, short_name").order("name"),
+  const [{ data: section, error }, { data: categories, error: categoryError }, { data: offices, error: officeError }, { timezone }] = await Promise.all([
+    db.from("guidelines").select("*, documents(id, title, file_name, file_path, mime_type), guideline_steps(step_number, title, description)").eq("id", id).maybeSingle(),
+    db.from("guideline_categories").select("id, name").order("sort_order").order("name"),
+    db.from("offices").select("id, name").order("name"),
+    getBranding(),
   ])
-  if (sectionError || officeError) throw new Error("The source excerpts could not be loaded.")
-  const supportedOffices = (offices ?? []).filter(o => supportsOffice(sections ?? [], o))
+  if (error || categoryError || officeError) throw new Error("The section could not be loaded.")
+  if (!section) notFound()
+
+  const source = section.documents
+  const fromSource = !!section.source_document_id
+  const reference = readGuideReference(section.source_reference)
+  const pages = reference?.pages ?? []
+  const { data: signed } = source
+    ? await db.storage.from("documents").createSignedUrl(source.file_path, 60 * 60)
+    : { data: null }
+  const backHref = source ? `/admin/documents/${source.id}` : "/admin/knowledge?tab=manual"
+
+  const editor = (
+    <GuideEditor
+      key={section.updated_at}
+      fromSource={fromSource}
+      backHref={backHref}
+      categories={categories ?? []}
+      offices={offices ?? []}
+      values={{
+        id: section.id,
+        updatedAt: section.updated_at,
+        title: section.title,
+        categoryId: section.category_id,
+        description: section.description ?? "",
+        content: section.content ?? "",
+        requirements: section.requirements,
+        steps: [...section.guideline_steps].sort((a, b) => a.step_number - b.step_number).map((s) => ({ title: s.title, description: s.description ?? "" })),
+        pages,
+        referenceNote: reference ? "" : section.source_reference ?? "",
+        visibility: section.visibility,
+        responsibleOfficeId: section.responsible_office_id,
+        status: section.status,
+      }}
+    />
+  )
+
   return (
-    <>
-      <PageHeader title="Review guide" description="Verify the source excerpts, edit the draft, and publish when it is ready."><StatusBadge status={guide.status} /></PageHeader>
-      <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <section aria-label="Guide editor" className="min-w-0 rounded-lg border bg-background p-5 sm:p-6">
-          <GuideEditor key={guide.id} values={{ id: guide.id, updatedAt: guide.updated_at, title: guide.title, description: guide.description ?? "", requirements: guide.requirements,
-            steps: [...guide.guideline_steps].sort((a, b) => a.step_number - b.step_number).map(s => ({ title: s.title, description: s.description ?? "" })),
-            pages: ref?.pages ?? [], responsibleOfficeId: guide.responsible_office_id, status: guide.status }} offices={supportedOffices} />
-        </section>
-        <section aria-labelledby="evidence-heading" className="min-w-0">
-          <h2 id="evidence-heading" className="font-semibold">Source excerpts</h2>
-          {guide.source_document_id && <Link href={`/admin/documents/${guide.source_document_id}`} className="mt-2 inline-block text-sm font-medium text-primary underline">{guide.documents?.title ?? "Open source"}</Link>}
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">These are the original stored sections. If a procedure, requirement, or office is not stated, leave it unspecified.</p>
-          {sections?.length ? <ol className="mt-4 divide-y rounded-lg border bg-background">
-            {sections.map(s => <li key={s.id} className="p-5">
-              <p className="text-xs font-medium text-muted-foreground">{pageLabel(s.page_number ? [s.page_number] : [])}{s.section_title ? ` � ${s.section_title}` : ""}</p>
-              <p className="mt-3 text-sm leading-relaxed whitespace-pre-line break-words">{s.content}</p>
-            </li>)}
-          </ol> : <p role="alert" className="mt-4 text-sm text-destructive">The linked source sections are unavailable. This guide cannot be published.</p>}
-        </section>
+    <div data-layout="wide" className="w-full min-w-0">
+      <nav aria-label="Breadcrumb" className="mb-3 text-sm">
+        <ol className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground">
+          <li><Link href="/admin/knowledge" className="hover:text-foreground hover:underline">Knowledge Library</Link></li>
+          <li aria-hidden="true"><ChevronRight className="size-3.5" /></li>
+          {source ? (
+            <li className="max-w-64 truncate"><Link href={`/admin/documents/${source.id}`} className="hover:text-foreground hover:underline">{source.title}</Link></li>
+          ) : (
+            <li><Link href="/admin/knowledge?tab=manual" className="hover:text-foreground hover:underline">Manual Entries</Link></li>
+          )}
+          <li aria-hidden="true"><ChevronRight className="size-3.5" /></li>
+          <li aria-current="page" className="max-w-64 truncate font-medium text-foreground">{section.title}</li>
+        </ol>
+      </nav>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-semibold tracking-tight break-words">{fromSource ? "Review knowledge section" : "Manual entry"}</h1>
+          <StatusBadge status={section.status} />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Last updated <time dateTime={section.updated_at}>{formatDate(section.updated_at, timezone, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</time>
+        </p>
       </div>
-    </>
+      {created === "1" && <p role="status" className="mt-4 text-sm text-muted-foreground">Entry created.</p>}
+
+      {fromSource ? (
+        <div className="mt-5 grid items-start gap-6 xl:grid-cols-2">
+          <section aria-label="Original source" className="min-w-0 xl:sticky xl:top-4">
+            {source && signed?.signedUrl && source.mime_type === "application/pdf" ? (
+              <SourcePagePreview url={signed.signedUrl} title={source.title} fileName={source.file_name} pages={pages} />
+            ) : (
+              <p role="alert" className="rounded-lg border bg-background px-4 py-3 text-sm text-destructive">
+                The original file could not be opened. {source ? <Link href={`/admin/documents/${source.id}`} className="font-medium underline">Open the source</Link> : "Its source was removed."}
+              </p>
+            )}
+          </section>
+          <section aria-label="Extracted knowledge" className="min-w-0 rounded-lg border bg-background p-5 sm:p-6">
+            {editor}
+          </section>
+        </div>
+      ) : (
+        <section aria-label="Entry" className="mt-5 max-w-3xl rounded-lg border bg-background p-5 sm:p-6">
+          {editor}
+        </section>
+      )}
+    </div>
   )
 }
