@@ -81,8 +81,13 @@ export function groupSourceSections(sections: SourceSection[]): GuideTopic[] {
   return [...groups.values()]
 }
 
-export function supportsOffice(sections: SourceSection[], office: { name: string; short_name: string | null }) {
-  const content = topicKey(sections.map(s => s.content).join(" "))
+export function supportsOffice(sections: Pick<SourceSection, "content">[], office: { name: string; short_name: string | null }) {
+  return namesOffice(sections.map(s => s.content).join(" "), office)
+}
+
+/** True when the text explicitly names the office (full or short name). */
+export function namesOffice(text: string, office: { name: string; short_name: string | null }) {
+  const content = topicKey(text)
   return [office.name, office.short_name].some(name => name && name.length >= 3 && (` ${content} `).includes(` ${topicKey(name)} `))
 }
 

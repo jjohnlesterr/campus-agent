@@ -1,10 +1,12 @@
 import "server-only"
 import { createHash } from "node:crypto"
 import type { createClient } from "@/lib/supabase/server"
-import { groupSourceSections, readGuideReference, supportsOffice, topicKey, topicReference } from "@/lib/knowledge/topics"
+import { type GuideTopic, groupSourceSections, readGuideReference, supportsOffice, topicKey, topicReference } from "@/lib/knowledge/topics"
 
 type Client = Awaited<ReturnType<typeof createClient>>
-export type GenerationResult = { ok: true; created: number; skipped: number } | { ok: false; error: string; created?: number }
+export type GenerationResult =
+  | { ok: true; created: number; skipped: number; topics: GuideTopic[]; createdSections: { id: string; topic: string }[] }
+  | { ok: false; error: string; created?: number }
 
 export async function createDraftGuides(db: Client, documentId: string): Promise<GenerationResult> {
   const { data: source, error: sourceError } = await db.from("documents").select("id, status, mime_type, visibility").eq("id", documentId).single()
@@ -21,7 +23,7 @@ export async function createDraftGuides(db: Client, documentId: string): Promise
   if (!topics.length) return { ok: false, error: "No titled sections were found. This source needs clearly labelled topics before guides can be generated." }
   const keys = new Set((existing ?? []).map(g => readGuideReference(g.source_reference)?.topic ?? topicKey(g.title)))
   const candidates = topics.filter(t => !keys.has(t.key))
-  if (!candidates.length) return { ok: true, created: 0, skipped: topics.length }
+  if (!candidates.length) return { ok: true, created: 0, skipped: topics.length, topics, createdSections: [] }
   // The existing category table is required by guidelines; seed only this neutral category.
   const { error: categoryError } = await db.from("guideline_categories").upsert({ name: "Source guides", slug: "source-guides" }, { onConflict: "slug", ignoreDuplicates: true })
   if (categoryError) return { ok: false, error: "The guide category could not be prepared." }
@@ -31,6 +33,8 @@ export async function createDraftGuides(db: Client, documentId: string): Promise
     const supportedOffices = (offices ?? []).filter(office => supportsOffice(topic.sections, office))
     return {
       title: topic.title, description: topic.description, requirements: topic.requirements,
+      // Verbatim extracted text: what Campus Agent answers from once the section is Published.
+      content: topic.sections.map(s => s.content).join("\n\n"),
       slug: `source-${documentId}-${createHash("sha256").update(topic.key).digest("hex").slice(0, 24)}`,
       category_id: category.id, source_document_id: documentId, source_reference: JSON.stringify(topicReference(topic)),
       responsible_office_id: supportedOffices.length === 1 ? supportedOffices[0].id : null,
@@ -49,5 +53,9 @@ export async function createDraftGuides(db: Client, documentId: string): Promise
     const { error } = await db.from("guideline_steps").insert(steps)
     if (error) return { ok: false, created: created?.length ?? 0, error: "Drafts were saved, but their numbered steps could not be saved. Review the drafts against their source excerpts before publishing." }
   }
-  return { ok: true, created: created?.length ?? 0, skipped: topics.length - (created?.length ?? 0) }
+  const createdSections = (created ?? []).flatMap(guide => {
+    const topic = readGuideReference(guide.source_reference)?.topic
+    return topic ? [{ id: guide.id, topic }] : []
+  })
+  return { ok: true, created: created?.length ?? 0, skipped: topics.length - (created?.length ?? 0), topics, createdSections }
 }

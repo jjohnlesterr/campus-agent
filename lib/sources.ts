@@ -1,4 +1,4 @@
-// Admin → Sources: source types, accepted files and display labels.
+// Admin → Knowledge Library sources: source types, accepted files and display labels.
 // Shared by server actions and client components (no server-only imports).
 
 import type { Enums } from "@/lib/supabase/database.types"
@@ -11,12 +11,12 @@ export const MAX_SOURCE_BYTES = 25 * 1024 * 1024
 
 /** Types an admin can choose when uploading. */
 export const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string; hint: string }[] = [
-  { value: "handbook", label: "Student Handbook", hint: "Text is extracted and used to answer student questions." },
-  { value: "policy", label: "Policy / Memo", hint: "Text is extracted and used to answer student questions." },
-  { value: "announcement", label: "Announcement Reference", hint: "Text is extracted and used to answer student questions." },
-  { value: "calendar", label: "Academic Calendar", hint: "Text is extracted and used to answer student questions." },
-  { value: "campus_map", label: "Campus Map", hint: "PDF text is extracted; images are stored as references without text extraction." },
-  { value: "other", label: "Other", hint: "Text is extracted and used to answer student questions." },
+  { value: "handbook", label: "Student Handbook", hint: "After upload, analyze it with AI to create knowledge sections for review." },
+  { value: "policy", label: "Policy / Memo", hint: "After upload, analyze it with AI to create knowledge sections for review." },
+  { value: "announcement", label: "Announcement Reference", hint: "After upload, analyze it with AI to create knowledge sections for review." },
+  { value: "calendar", label: "Academic Calendar", hint: "After upload, analyze it with AI to create knowledge sections for review." },
+  { value: "campus_map", label: "Campus Map", hint: "A PDF can be analyzed with AI; an image is stored as a reference to view." },
+  { value: "other", label: "Other", hint: "After upload, analyze it with AI to create knowledge sections for review." },
 ]
 
 const LABELS: Record<SourceType, string> = {

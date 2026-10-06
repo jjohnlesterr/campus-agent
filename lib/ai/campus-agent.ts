@@ -18,7 +18,7 @@ import { answerProgramsQuestion } from "@/lib/campus/programs"
 import { detectProgramsQuestion } from "@/lib/campus/programs-match"
 import { createPublicClient } from "@/lib/supabase/public"
 import type { DbClient } from "@/lib/supabase/types"
-import { type HandbookPassage, searchHandbook } from "@/lib/rag/search"
+import { type KnowledgePassage, searchKnowledge } from "@/lib/rag/search"
 
 // Campus Agent answer flow:
 // greeting / help / gibberish / insult / clearly off-topic → local canned reply
@@ -28,7 +28,7 @@ import { type HandbookPassage, searchHandbook } from "@/lib/rag/search"
 // location question ("Nasaan yung Registrar?") or a bare place name ("registrar")
 //   → official campus map legend (structured, no AI) + campus map link.
 // anything else, or a place the legend doesn't list → full-text search over
-//   handbook chunks (query expanded with English handbook terms for Tagalog /
+//   Published Knowledge Library sections — never Draft or Archived ones (query expanded with English handbook terms for Tagalog /
 //   Taglish / shorthand, e.g. "kuha TOR" → "transcript records request") → only
 //   those passages to Claude → grounded, structured answer in the student's
 //   language. The source line is built here from the passages Claude reports
@@ -77,7 +77,7 @@ export type CampusAgentAnswer = StructuredAnswer & {
   /** Markdown version, stored as the message content. */
   text: string
   /** Passages that were retrieved and sent to Claude. */
-  retrieved: HandbookPassage[]
+  retrieved: KnowledgePassage[]
   usage?: { inputTokens: number; outputTokens: number }
   /** True when the guardrail answered without retrieval or Claude. Internal — never stored or shown. */
   handledLocally?: boolean
@@ -92,12 +92,12 @@ export type CampusAgentAnswer = StructuredAnswer & {
  */
 export type AnswerAudience = "student" | "public"
 
-function fixed(status: "not_found" | "error", message: string, retrieved: HandbookPassage[], usage?: CampusAgentAnswer["usage"]): CampusAgentAnswer {
+function fixed(status: "not_found" | "error", message: string, retrieved: KnowledgePassage[], usage?: CampusAgentAnswer["usage"]): CampusAgentAnswer {
   const answer: StructuredAnswer = { status, summary: message, steps: [], requirements: [], details: "", gaps: "", sources: [] }
   return { ...answer, text: message, retrieved, usage }
 }
 
-function sourcesBlock(passages: HandbookPassage[]) {
+function sourcesBlock(passages: KnowledgePassage[]) {
   const items = passages.map((p, i) => {
     const section = p.sectionTitle ? ` section="${p.sectionTitle.replace(/"/g, "'")}"` : ""
     return `<source id="${i + 1}" label="${p.sourceLabel}"${section}>\n${p.content}\n</source>`
@@ -176,7 +176,7 @@ export async function answerQuestion(question: string, { audience = "student" }:
 
 async function answerFromHandbook(q: string, language: ReplyLanguage, db?: DbClient): Promise<CampusAgentAnswer> {
   // Search with English handbook terms added; Claude still sees the original question.
-  const passages = await searchHandbook(expandQuery(q), { limit: MAX_PASSAGES, supabase: db })
+  const passages = await searchKnowledge(expandQuery(q), { limit: MAX_PASSAGES, supabase: db })
 
   // Nothing relevant in the handbook: don't ask Claude to answer from nothing.
   if (passages.length === 0) return fixed("not_found", noSourceMessage(language), [])
