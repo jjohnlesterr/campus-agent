@@ -214,6 +214,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          analyzed_at: string | null
           created_at: string
           document_type: Database["public"]["Enums"]["document_type"]
           effective_date: string | null
@@ -221,14 +222,18 @@ export type Database = {
           file_path: string
           file_size: number
           id: string
+          key_topics: string[]
           mime_type: string
           processing_error: string | null
           status: Database["public"]["Enums"]["document_status"]
+          summary: string | null
           title: string
           updated_at: string
+          uploaded_by: string | null
           visibility: Database["public"]["Enums"]["content_visibility"]
         }
         Insert: {
+          analyzed_at?: string | null
           created_at?: string
           document_type?: Database["public"]["Enums"]["document_type"]
           effective_date?: string | null
@@ -236,14 +241,18 @@ export type Database = {
           file_path: string
           file_size: number
           id?: string
+          key_topics?: string[]
           mime_type: string
           processing_error?: string | null
           status?: Database["public"]["Enums"]["document_status"]
+          summary?: string | null
           title: string
           updated_at?: string
+          uploaded_by?: string | null
           visibility?: Database["public"]["Enums"]["content_visibility"]
         }
         Update: {
+          analyzed_at?: string | null
           created_at?: string
           document_type?: Database["public"]["Enums"]["document_type"]
           effective_date?: string | null
@@ -251,14 +260,25 @@ export type Database = {
           file_path?: string
           file_size?: number
           id?: string
+          key_topics?: string[]
           mime_type?: string
           processing_error?: string | null
           status?: Database["public"]["Enums"]["document_status"]
+          summary?: string | null
           title?: string
           updated_at?: string
+          uploaded_by?: string | null
           visibility?: Database["public"]["Enums"]["content_visibility"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       events: {
         Row: {
@@ -384,6 +404,7 @@ export type Database = {
       guidelines: {
         Row: {
           category_id: string
+          content: string | null
           created_at: string
           description: string | null
           effective_date: string | null
@@ -391,6 +412,7 @@ export type Database = {
           related_forms: string[]
           requirements: string[]
           responsible_office_id: string | null
+          search_vector: unknown
           slug: string
           source_document_id: string | null
           source_reference: string | null
@@ -401,6 +423,7 @@ export type Database = {
         }
         Insert: {
           category_id: string
+          content?: string | null
           created_at?: string
           description?: string | null
           effective_date?: string | null
@@ -408,6 +431,7 @@ export type Database = {
           related_forms?: string[]
           requirements?: string[]
           responsible_office_id?: string | null
+          search_vector?: unknown
           slug: string
           source_document_id?: string | null
           source_reference?: string | null
@@ -418,6 +442,7 @@ export type Database = {
         }
         Update: {
           category_id?: string
+          content?: string | null
           created_at?: string
           description?: string | null
           effective_date?: string | null
@@ -425,6 +450,7 @@ export type Database = {
           related_forms?: string[]
           requirements?: string[]
           responsible_office_id?: string | null
+          search_vector?: unknown
           slug?: string
           source_document_id?: string | null
           source_reference?: string | null
@@ -681,6 +707,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      search_knowledge: {
+        Args: { match_count?: number; query_text: string }
+        Returns: {
+          content: string
+          rank: number
+          section_id: string
+          source_id: string
+          source_reference: string
+          source_title: string
+          title: string
+        }[]
+      }
       search_document_chunks: {
         Args: { match_count?: number; query_text: string }
         Returns: {
