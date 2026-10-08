@@ -35,10 +35,12 @@ type Busy = "draft" | "published" | "unpublish" | "archive" | "restore" | "delet
 /**
  * Review / edit one knowledge section. `fromSource` sections were extracted by AI
  * from a file: they must be confirmed against the original before publishing.
+ * `paged`: the source is a PDF, so the section cites pages (text sources have none).
  */
-export function GuideEditor({ values, fromSource, backHref, categories, offices }: {
+export function GuideEditor({ values, fromSource, paged, backHref, categories, offices }: {
   values: GuideEditorValues
   fromSource: boolean
+  paged: boolean
   backHref: string
   categories: Option[]
   offices: Option[]
@@ -89,7 +91,7 @@ export function GuideEditor({ values, fromSource, backHref, categories, offices 
     act(intent, () => saveGuide({
       id: values.id, updatedAt: values.updatedAt, title, categoryId, description, content,
       requirements: requirements.split("\n").map((s) => s.trim()).filter(Boolean), steps,
-      pages: fromSource ? pages.split(",").map((s) => s.trim()).filter(Boolean).map(Number) : [],
+      pages: fromSource && paged ? pages.split(",").map((s) => s.trim()).filter(Boolean).map(Number) : [],
       referenceNote: fromSource ? "" : referenceNote, visibility,
       responsibleOfficeId: office || null, intent, reviewed: fromSource ? reviewed : true,
     }), "back")
@@ -117,11 +119,11 @@ export function GuideEditor({ values, fromSource, backHref, categories, offices 
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
-          {fromSource ? (
+          {fromSource ? (paged && (
             <Field id="section-pages" label="Page reference" hint="Comma-separated pages, e.g. 4, 5">
               <Input id="section-pages" value={pages} onChange={(e) => edited(setPages)(e.target.value)} inputMode="numeric" required aria-describedby="section-pages-hint" />
             </Field>
-          ) : (
+          )) : (
             <Field id="section-reference" label="Reference note" optional hint="Shown as the source in answers, e.g. “Registrar memo, Aug 2026”.">
               <Input id="section-reference" value={referenceNote} onChange={(e) => setReferenceNote(e.target.value)} maxLength={300} aria-describedby="section-reference-hint" />
             </Field>

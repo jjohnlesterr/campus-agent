@@ -6,8 +6,23 @@ import type { Enums } from "@/lib/supabase/database.types"
 export type SourceType = Enums<"document_type">
 
 export const PDF = "application/pdf"
+/** Text sources: verified text written or pasted in the app, stored as a plain-text file. */
+export const TEXT = "text/plain"
 export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const
 export const MAX_SOURCE_BYTES = 25 * 1024 * 1024
+export const MAX_TEXT_SOURCE_CHARS = 200_000
+
+export type SourceFormat = "pdf" | "text" | "image"
+
+/** Document source (uploaded PDF or image) or text source, from its stored MIME type. */
+export function sourceFormat(mimeType: string): SourceFormat {
+  return mimeType === PDF ? "pdf" : mimeType === TEXT ? "text" : "image"
+}
+
+/** PDFs and text sources are analyzed into knowledge sections; images are reference files. */
+export function isAnalyzable(mimeType: string) {
+  return sourceFormat(mimeType) !== "image"
+}
 
 /** Types an admin can choose when uploading. The campus map is managed in Admin › Campus Map instead. */
 export const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string; hint: string }[] = [
@@ -17,6 +32,27 @@ export const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string; hint: stri
   { value: "calendar", label: "Academic Calendar", hint: "After upload, analyze it with AI to create knowledge sections for review." },
   { value: "other", label: "Other", hint: "After upload, analyze it with AI to create knowledge sections for review." },
 ]
+
+/** Source types a Knowledge Library upload can have (not the campus map). */
+export const UPLOAD_SOURCE_TYPES = ["handbook", "policy", "announcement", "calendar", "other"] as const
+export type UploadSourceType = (typeof UPLOAD_SOURCE_TYPES)[number]
+
+// Collection names that clearly imply one source type, checked in order.
+const COLLECTION_SOURCE_TYPES: [RegExp, UploadSourceType][] = [
+  [/handbook/, "handbook"],
+  [/calendar/, "calendar"],
+  [/polic|memo/, "policy"],
+  [/announcement/, "announcement"],
+]
+
+/**
+ * The source type implied by a collection's name ("Student Handbook" → handbook), or
+ * null when the name gives no clear type and the admin chooses one when uploading.
+ */
+export function collectionSourceType(collectionName: string | null | undefined): UploadSourceType | null {
+  const name = collectionName?.toLowerCase() ?? ""
+  return COLLECTION_SOURCE_TYPES.find(([pattern]) => pattern.test(name))?.[1] ?? null
+}
 
 const LABELS: Record<SourceType, string> = {
   handbook: "Student Handbook",
@@ -39,9 +75,9 @@ export function isReferenceOnly(type: SourceType, mimeType?: string) {
   return mimeType ? mimeType.startsWith("image/") : type === "campus_map"
 }
 
-/** MIME types accepted for a source type. */
+/** MIME types a new Knowledge Library upload can have: PDF only. Campus map images use Admin › Campus Map. */
 export function acceptedMimeTypes(): string[] {
-  return [PDF, ...IMAGE_TYPES]
+  return [PDF]
 }
 
 export const EXTENSIONS: Record<string, string> = {
