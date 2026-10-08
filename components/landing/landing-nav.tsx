@@ -65,21 +65,16 @@ function useCurrentSection(headerRef: React.RefObject<HTMLElement | null>) {
 }
 
 /**
- * account: the signed-in user's home ("/app" or "/admin") and profile page, or null
- * for a guest. Guests see Sign in + Create account; signed-in users see Open Campus Agent.
+ * account: the signed-in user's home ("/app" or "/admin"), or null for a guest.
+ * Guests see Sign in + Create account; signed-in users see Open Campus Agent.
  */
-export function LandingNav({ account }: { account: { homeHref: string; profileHref: string | null } | null }) {
+export function LandingNav({ account }: { account: { homeHref: string } | null }) {
   const [open, setOpen] = useState(false)
   // Section the mobile menu should scroll to once it has closed (its scroll lock is released).
   const pendingSection = useRef<string | null>(null)
   const headerRef = useRef<HTMLElement>(null)
   const currentSection = useCurrentSection(headerRef)
-  const menuLinks = account
-    ? [
-        { href: account.homeHref, label: "Open Campus Agent" },
-        ...(account.profileHref ? [{ href: account.profileHref, label: "Your profile" }] : []),
-      ]
-    : GUEST_LINKS
+  const menuLinks = account ? [{ href: account.homeHref, label: "Open Campus Agent" }] : GUEST_LINKS
 
   return (
     <header ref={headerRef} className="sticky top-0 z-30 border-b bg-background">
@@ -116,18 +111,11 @@ export function LandingNav({ account }: { account: { homeHref: string; profileHr
             ))}
           </nav>
           {account ? (
-            <>
-              {account.profileHref && (
-                <Link href={account.profileHref} className={buttonVariants({ variant: "ghost", size: "lg", className: "hidden px-3 sm:inline-flex" })}>
-                  Profile
-                </Link>
-              )}
-              {/* Short label on phones so the header never overflows at 360px. */}
-              <Link href={account.homeHref} className={buttonVariants({ size: "lg", className: "px-3 sm:px-4" })}>
-                <span className="sm:hidden">Open app</span>
-                <span className="hidden sm:inline">Open Campus Agent</span>
-              </Link>
-            </>
+            // Short label on phones so the header never overflows at 360px.
+            <Link href={account.homeHref} className={buttonVariants({ size: "lg", className: "px-3 sm:px-4" })}>
+              <span className="sm:hidden">Open app</span>
+              <span className="hidden sm:inline">Open Campus Agent</span>
+            </Link>
           ) : (
             <>
               <Link

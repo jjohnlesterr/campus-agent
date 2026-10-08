@@ -23,7 +23,7 @@ export function GuideList({
       <PageHeader title="School Guides" description="Step-by-step procedures reviewed by university staff — enrollment, INC grades, clearance, graduation and more." />
       {failed ? <p role="alert" className="mt-6 text-sm text-destructive">Guides could not be loaded. Please try again.</p> : guides?.length ? <ul className="mt-6 divide-y border-y">
         {guides.map(guide => <li key={guide.id}><Link href={`${basePath}/${guide.id}`} className="flex items-start gap-4 rounded-sm py-5 outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring">
-          <div className="min-w-0 flex-1"><h2 className="font-semibold">{guide.title}</h2><p className="mt-2 line-clamp-3 max-w-prose text-sm leading-relaxed text-muted-foreground">{guide.description}</p><p className="mt-3 text-xs text-muted-foreground">{guide.documents?.title ?? "University guide"} · {referenceLabel(guide.source_reference)}</p></div>
+          <div className="min-w-0 flex-1"><h2 className="font-semibold">{guide.title}</h2><p className="mt-2 line-clamp-3 max-w-prose text-sm leading-relaxed text-muted-foreground">{guide.description}</p><p className="mt-3 text-xs text-muted-foreground">{[guide.documents?.title ?? "University guide", referenceLabel(guide.source_reference)].filter(Boolean).join(" · ")}</p></div>
           <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Link></li>)}
       </ul> : <div className="mt-8"><EmptyState icon={BookOpen} title="No published guides yet." description={emptyDescription} /></div>}

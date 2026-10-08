@@ -12,6 +12,7 @@ import { getBranding } from "@/lib/branding"
 import { formatDate } from "@/lib/datetime"
 import { collectionHref } from "@/lib/knowledge/collections"
 import { readGuideReference } from "@/lib/knowledge/topics"
+import { PDF, TEXT } from "@/lib/sources"
 import { createClient } from "@/lib/supabase/server"
 
 // Knowledge Library → review / edit one knowledge section (AI-extracted or manual).
@@ -35,9 +36,15 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
   const fromSource = !!section.source_document_id
   const reference = readGuideReference(section.source_reference)
   const pages = reference?.pages ?? []
-  const { data: signed } = source
+  const sourceIsText = source?.mime_type === TEXT
+  // PDF sources are previewed by signed link; a text source's text is shown in the page.
+  const { data: signed } = source && !sourceIsText
     ? await db.storage.from("documents").createSignedUrl(source.file_path, 60 * 60)
     : { data: null }
+  const { data: textFile } = source && sourceIsText
+    ? await db.storage.from("documents").download(source.file_path)
+    : { data: null }
+  const sourceText = textFile ? await textFile.text() : null
   // A section's collection is its source's; a manual entry has its own.
   const collectionId = source ? source.collection_id : section.collection_id
   const collectionName = (source ? source.knowledge_collections?.name : section.knowledge_collections?.name) ?? "Uncategorized"
@@ -47,6 +54,7 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
     <GuideEditor
       key={section.updated_at}
       fromSource={fromSource}
+      paged={source?.mime_type === PDF}
       backHref={backHref}
       categories={categories ?? []}
       offices={offices ?? []}
@@ -105,8 +113,13 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
       {fromSource ? (
         <div className="mt-5 grid items-start gap-6 xl:grid-cols-2">
           <section aria-label="Original source" className="min-w-0 xl:sticky xl:top-4">
-            {source && signed?.signedUrl && source.mime_type === "application/pdf" ? (
+            {source && signed?.signedUrl && source.mime_type === PDF ? (
               <SourcePagePreview url={signed.signedUrl} title={source.title} fileName={source.file_name} pages={pages} />
+            ) : source && sourceText !== null ? (
+              <div className="rounded-lg border bg-background">
+                <p className="border-b px-4 py-2.5 text-sm font-medium">Original text · {source.title}</p>
+                <div className="max-h-[min(80vh,820px)] overflow-y-auto px-4 py-3 text-sm leading-relaxed break-words whitespace-pre-wrap">{sourceText}</div>
+              </div>
             ) : (
               <p role="alert" className="rounded-lg border bg-background px-4 py-3 text-sm text-destructive">
                 The original file could not be opened. {source ? <Link href={`/admin/documents/${source.id}`} className="font-medium underline">Open the source</Link> : "Its source was removed."}

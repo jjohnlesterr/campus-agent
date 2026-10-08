@@ -40,7 +40,7 @@ export default async function KnowledgeLibraryPage({ searchParams }: PageProps<"
 
       {params.upload === "1" && (
         <p role="status" className="mt-5 rounded-md border bg-accent/40 px-4 py-3 text-sm">
-          Open a collection, then choose <span className="font-medium">Upload PDF</span> to add a source to it.
+          Open a collection, then choose <span className="font-medium">Add source</span> to upload a document or create a text source.
         </p>
       )}
 

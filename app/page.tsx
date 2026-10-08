@@ -39,13 +39,7 @@ export default async function LandingPage() {
 
   return (
     <div className="landing-page flex flex-1 flex-col bg-background">
-      <LandingNav
-        account={
-          profile
-            ? { homeHref: homePathFor(profile.role), profileHref: profile.role === "admin" ? null : "/app/profile" }
-            : null
-        }
-      />
+      <LandingNav account={profile ? { homeHref: homePathFor(profile.role) } : null} />
 
       <main className="flex-1">
         {/* Hero: centered headline and the public ask box */}

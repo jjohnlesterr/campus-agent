@@ -2,11 +2,11 @@
 
 import { randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import { z } from "zod"
 import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { namesOffice, readGuideReference, topicKey } from "@/lib/knowledge/topics"
+import { PDF, isAnalyzable } from "@/lib/sources"
 
 function revalidate(id?: string, documentId?: string | null) {
   for (const path of ["/admin/knowledge", "/admin", "/app/guides"]) revalidatePath(path)
@@ -57,12 +57,13 @@ export async function saveGuide(input: GuideEditInput): Promise<SaveGuideResult>
   if (fromSource) {
     if (values.intent === "published" && !values.reviewed) return { ok: false, error: "Review the original source and confirm the section before publishing." }
     const ref = readGuideReference(guide.source_reference)
-    if (!values.pages.length) return { ok: false, error: "Add at least one page reference." }
     const [{ data: source, error: sourceError }, { data: sample }] = await Promise.all([
-      db.from("documents").select("status, visibility").eq("id", guide.source_document_id!).single(),
+      db.from("documents").select("status, visibility, mime_type").eq("id", guide.source_document_id!).single(),
       db.from("document_chunks").select("metadata").eq("document_id", guide.source_document_id!).limit(1).maybeSingle(),
     ])
     if (sourceError || !source) return { ok: false, error: "The original source could not be verified." }
+    // PDF sections cite pages; text sources have none and are cited by their title.
+    if (source.mime_type === PDF && !values.pages.length) return { ok: false, error: "Add at least one page reference." }
     if (values.intent === "published" && source.status === "archived") return { ok: false, error: "Restore the source before publishing its sections." }
     const pageCount = (sample?.metadata as { page_count?: number } | null)?.page_count
     if (pageCount && values.pages.some(page => page > pageCount)) return { ok: false, error: `Use page numbers from the source (1–${pageCount}).` }
@@ -155,38 +156,6 @@ export async function setGuideStatuses(ids: string[], intent: "draft" | "publish
   return { ok: true, updated, skipped: uniqueIds.length - updated }
 }
 
-const manualSchema = z.object({
-  title: z.string().trim().min(2, "Enter a title (at least 2 characters).").max(200),
-  categoryId: z.uuid("Choose a category."),
-  content: z.string().trim().min(10, "Add the content Campus Agent should use.").max(20000),
-  responsibleOfficeId: z.union([z.uuid(), z.literal("")]),
-  referenceNote: z.string().trim().max(300),
-  visibility: z.enum(["public", "authenticated"]),
-  status: z.enum(["draft", "published"]),
-  // Knowledge Library collection it is created in ("" = Uncategorized).
-  collectionId: z.union([z.uuid(), z.literal("")]),
-})
-export type ManualEntryState = { error?: string; values?: Record<string, string> }
-
-/** Create manually: a knowledge section with no source file. */
-export async function createManualEntry(_previous: ManualEntryState, formData: FormData): Promise<ManualEntryState> {
-  await requireAdmin()
-  const raw = Object.fromEntries(["title", "categoryId", "content", "responsibleOfficeId", "referenceNote", "visibility", "status", "collectionId"].map(key => [key, String(formData.get(key) ?? "")]))
-  const parsed = manualSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the entry fields.", values: raw }
-  const values = parsed.data
-  const db = await createClient()
-  const { data, error } = await db.from("guidelines").insert({
-    title: values.title, slug: `manual-${randomUUID()}`, category_id: values.categoryId,
-    description: excerpt(values.content), content: values.content,
-    responsible_office_id: values.responsibleOfficeId || null, source_reference: values.referenceNote || null,
-    visibility: values.visibility, status: values.status, collection_id: values.collectionId || null,
-  }).select("id").single()
-  if (error || !data) return { error: "The entry could not be created. Please try again.", values: raw }
-  revalidate(data.id)
-  redirect(`/admin/knowledge/${data.id}?created=1`)
-}
-
 // Source details page: a source's sections are listed in page order and can be edited
 // in place. These actions change only a section's title, pages and text; the full
 // editor (/admin/knowledge/[id]) still handles steps, requirements, category and office.
@@ -245,7 +214,7 @@ export async function addSourceSection(input: { documentId: string; title: strin
   const db = await createClient()
   const { data: source, error: sourceError } = await db.from("documents").select("status, mime_type, visibility").eq("id", input.documentId).single()
   if (sourceError || !source) return { ok: false, error: "The source could not be loaded." }
-  if (source.mime_type !== "application/pdf") return { ok: false, error: "Sections can only be added to PDF sources." }
+  if (!isAnalyzable(source.mime_type)) return { ok: false, error: "Sections can only be added to PDF and text sources." }
   if (source.status === "archived") return { ok: false, error: "Restore the source before adding sections." }
   const pageProblem = pagesError(pages, await sourcePageCount(db, input.documentId))
   if (pageProblem) return { ok: false, error: pageProblem }
@@ -254,13 +223,45 @@ export async function addSourceSection(input: { documentId: string; title: strin
   const { error: categoryError } = await db.from("guideline_categories").upsert({ name: "Source guides", slug: "source-guides" }, { onConflict: "slug", ignoreDuplicates: true })
   const { data: category } = await db.from("guideline_categories").select("id").eq("slug", "source-guides").maybeSingle()
   if (categoryError || !category) return { ok: false, error: "The section could not be created. Please try again." }
+  // A new section goes to the end of the list; admins drag it into place.
+  const { data: siblings, error: siblingsError } = await db.from("guidelines").select("sort_order").eq("source_document_id", input.documentId)
+  if (siblingsError) return { ok: false, error: "The section could not be created. Please try again." }
+  const last = Math.max(siblings?.length ?? 0, ...(siblings ?? []).map((s) => s.sort_order ?? 0))
 
   const { error } = await db.from("guidelines").insert({
-    title, content, description: excerpt(content),
+    title, content, description: excerpt(content), sort_order: last + 1,
     slug: `source-${input.documentId}-section-${randomUUID()}`, category_id: category.id,
     source_document_id: input.documentId, visibility: source.visibility, status: "draft",
     source_reference: JSON.stringify({ version: 1, topic: topicKey(title), chunkIds: [], pages }),
   })
   revalidate(undefined, input.documentId)
   return error ? { ok: false, error: "The section could not be created. Please try again." } : { ok: true }
+}
+
+const reorderSchema = z.object({ documentId: z.uuid(), ids: z.array(z.uuid()).min(1).max(500) })
+
+/**
+ * Saves the admin's order of a source's knowledge sections (drag and drop). `ids` must be
+ * every section of the source, each once. Only sort_order changes: content, pages,
+ * status and citations stay as they are.
+ */
+export async function reorderSourceSections(input: { documentId: string; ids: string[] }): Promise<SaveGuideResult> {
+  await requireAdmin()
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid section order." }
+  const { documentId, ids } = parsed.data
+  const db = await createClient()
+  const { data: sections, error } = await db.from("guidelines").select("id, sort_order").eq("source_document_id", documentId)
+  if (error || !sections) return { ok: false, error: "The sections could not be loaded. Refresh the page and try again." }
+  const current = new Map(sections.map((s) => [s.id, s.sort_order]))
+  if (new Set(ids).size !== ids.length || ids.length !== current.size || ids.some((id) => !current.has(id))) {
+    return { ok: false, error: "The section list changed. Refresh the page and try again." }
+  }
+  for (const [index, id] of ids.entries()) {
+    if (current.get(id) === index + 1) continue
+    const { error: updateError } = await db.from("guidelines").update({ sort_order: index + 1 }).eq("id", id).eq("source_document_id", documentId)
+    if (updateError) return { ok: false, error: "The new order could not be saved. Refresh the page and try again." }
+  }
+  revalidate(undefined, documentId)
+  return { ok: true }
 }

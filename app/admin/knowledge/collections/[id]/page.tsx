@@ -1,18 +1,20 @@
 import { cn } from "cn"
-import { ChevronRight, Library, PenLine, Search } from "lucide-react"
+import { ChevronRight, Library, Search } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { CollectionMenu, LibraryCardMenu } from "@/components/admin/collection-dialogs"
 import { LibraryCard } from "@/components/admin/library-card"
-import { SourceUploader } from "@/components/admin/source-uploader"
+import { SortableSourceGrid } from "@/components/admin/sortable-source-grid"
+import { AddSourceButton } from "@/components/admin/add-source-button"
 import { EmptyState } from "@/components/shared/empty-state"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { requireAdmin } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
 import { UNCATEGORIZED, collectionHref, parseCollectionId } from "@/lib/knowledge/collections"
-import { LIBRARY_TABS, type LibraryEntry, type LibraryItem, buildSources, filterLibrary, libraryTab, matchesTab } from "@/lib/knowledge/library"
+import { LIBRARY_TABS, type LibraryEntry, type LibraryItem, buildSources, filterLibrary, libraryTab, matchesTab, orderLibrary } from "@/lib/knowledge/library"
+import { collectionSourceType } from "@/lib/sources"
 import { createClient } from "@/lib/supabase/server"
 
 // Knowledge Library → one collection: its uploaded sources and manual entries together.
@@ -28,7 +30,7 @@ export default async function CollectionPage({ params, searchParams }: PageProps
   const db = await createClient()
 
   let documentQuery = db.from("documents")
-    .select("id, title, status, mime_type, document_type, file_path, summary, key_topics, updated_at, collection_id")
+    .select("id, title, status, mime_type, document_type, file_path, description, summary, key_topics, updated_at, collection_id, sort_order")
     .neq("document_type", "campus_map")
   let entryQuery = db.from("guidelines")
     .select("id, title, status, description, updated_at, source_document_id, collection_id, guideline_categories(name)")
@@ -61,6 +63,8 @@ export default async function CollectionPage({ params, searchParams }: PageProps
   }))
   const items: LibraryItem[] = [...buildSources(documents.data ?? [], sections.data ?? []), ...manual]
   const visible = filterLibrary(items, tab, query)
+  // Every source in the collection in its saved order (drag and drop saves into these positions).
+  const sourceIds = orderLibrary(items).flatMap((item) => (item.kind === "source" ? [item.id] : []))
 
   // Small previews for image sources (private bucket → short-lived signed links).
   const images = (documents.data ?? []).filter((d) => d.mime_type.startsWith("image/") && visible.some((v) => v.id === d.id))
@@ -99,11 +103,7 @@ export default async function CollectionPage({ params, searchParams }: PageProps
           {description && <p className="mt-1.5 max-w-prose text-sm text-muted-foreground">{description}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/admin/knowledge/new${collectionId ? `?collection=${collectionId}` : ""}`} className={buttonVariants({ variant: "outline", size: "lg" })}>
-            <PenLine aria-hidden="true" />
-            Create manually
-          </Link>
-          <SourceUploader collectionId={collectionId} />
+          <AddSourceButton collectionId={collectionId} collectionType={collectionSourceType(collection.data?.name)} />
           {collection.data && <CollectionMenu collection={collection.data} sourceCount={items.length} />}
         </div>
       </header>
@@ -139,18 +139,23 @@ export default async function CollectionPage({ params, searchParams }: PageProps
       {loadError ? (
         <p role="alert" className="mt-6 text-sm text-destructive">This collection could not be loaded. Please refresh this page.</p>
       ) : visible.length > 0 ? (
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Sources and entries">
-          {visible.map((item) => (
-            <li key={`${item.kind}-${item.id}`} className="flex">
+        <SortableSourceGrid
+          collectionId={collectionId}
+          sourceIds={sourceIds}
+          cards={visible.map((item) => ({
+            id: item.id,
+            title: item.title,
+            sortable: item.kind === "source",
+            node: (
               <LibraryCard
                 item={item}
                 timezone={timezone}
                 thumbnailUrl={thumbnails.get(item.id)}
-                menu={<LibraryCardMenu kind={item.kind} id={item.id} title={item.title} currentCollectionId={collectionId} collections={moveTargets} />}
+                menu={<LibraryCardMenu kind={item.kind} id={item.id} title={item.title} description={item.description} currentCollectionId={collectionId} collections={moveTargets} />}
               />
-            </li>
-          ))}
-        </ul>
+            ),
+          }))}
+        />
       ) : (
         <div className="mt-5 rounded-lg border bg-background p-2">
           <EmptyState
@@ -159,7 +164,7 @@ export default async function CollectionPage({ params, searchParams }: PageProps
             description={
               query
                 ? "Try a different word, or clear the search to see everything in this collection."
-                : "Upload a PDF to analyze it into knowledge sections, or create an entry manually. Only Published knowledge is used by Campus Agent."
+                : "Choose Add source to upload a document or create a text source. Only Published knowledge is used by Campus Agent."
             }
           >
             {query && <Link href={tab === "all" ? basePath : `${basePath}?tab=${tab}`} className={buttonVariants({ variant: "outline" })}>Clear search</Link>}

@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { requireAdmin } from "@/lib/auth"
 import { nonEmptyCollectionMessage } from "@/lib/knowledge/collections"
+import { nextSourcePosition } from "@/lib/knowledge/source-order"
 import { createClient } from "@/lib/supabase/server"
 
 // Knowledge Library collections. Organizational only: moving or grouping a source never
@@ -99,10 +100,40 @@ export async function moveToCollection(input: MoveInput): Promise<CollectionActi
   const { kind, id, collectionId } = parsed.data
   const db = await createClient()
   const { data, error } = kind === "source"
-    ? await db.from("documents").update({ collection_id: collectionId }).eq("id", id).neq("document_type", "campus_map").select("id").maybeSingle()
+    // A moved source goes to the end of its new collection.
+    ? await db.from("documents").update({ collection_id: collectionId, sort_order: await nextSourcePosition(db, collectionId) }).eq("id", id).neq("document_type", "campus_map").select("id").maybeSingle()
     : await db.from("guidelines").update({ collection_id: collectionId }).eq("id", id).is("source_document_id", null).select("id").maybeSingle()
   if (error?.code === "23503") return { ok: false, error: "That collection no longer exists. Refresh the page and try again." }
   if (error || !data) return { ok: false, error: "The item could not be moved. Please try again." }
   revalidate(kind === "source" ? id : undefined, kind === "manual" ? id : undefined)
+  return { ok: true }
+}
+
+const reorderSchema = z.object({ collectionId: z.uuid().nullable(), ids: z.array(z.uuid()).min(1).max(1000) })
+
+/**
+ * Saves the admin's order of the source cards in a collection (null: Uncategorized).
+ * `ids` must be every source in it, each once. Only sort_order changes, which does not
+ * touch updated_at, titles, files, statuses, sections or citations.
+ */
+export async function reorderCollectionSources(input: { collectionId: string | null; ids: string[] }): Promise<CollectionActionResult> {
+  await requireAdmin()
+  const parsed = reorderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "Invalid source order." }
+  const { collectionId, ids } = parsed.data
+  const db = await createClient()
+  const query = db.from("documents").select("id, sort_order").neq("document_type", "campus_map")
+  const { data: sources, error } = await (collectionId ? query.eq("collection_id", collectionId) : query.is("collection_id", null))
+  if (error || !sources) return { ok: false, error: "The sources could not be loaded. Refresh the page and try again." }
+  const current = new Map(sources.map((s) => [s.id, s.sort_order]))
+  if (new Set(ids).size !== ids.length || ids.length !== current.size || ids.some((id) => !current.has(id))) {
+    return { ok: false, error: "The sources in this collection changed. Refresh the page and try again." }
+  }
+  for (const [index, id] of ids.entries()) {
+    if (current.get(id) === index + 1) continue
+    const { error: updateError } = await db.from("documents").update({ sort_order: index + 1 }).eq("id", id)
+    if (updateError) return { ok: false, error: "The new order could not be saved. Refresh the page and try again." }
+  }
+  revalidate()
   return { ok: true }
 }
