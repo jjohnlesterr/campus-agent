@@ -1,9 +1,19 @@
 import "server-only"
 
+import { cache } from "react"
+
 import type { StructuredAnswer } from "@/lib/ai/answer-types"
 import type { ReplyLanguage } from "@/lib/ai/language"
 import type { ProgramsQuestion } from "@/lib/campus/programs-match"
+import { createClient } from "@/lib/supabase/server"
 import type { DbClient } from "@/lib/supabase/types"
+
+/** College codes ("CECT"), so questions naming a college are scoped to it. */
+export const getDepartmentCodes = cache(async (client?: DbClient): Promise<string[]> => {
+  const supabase = client ?? (await createClient())
+  const { data } = await supabase.from("departments").select("code")
+  return (data ?? []).map((d) => d.code)
+})
 
 /**
  * "Bachelor of Science in Information Technology (BSIT)". Acronym codes are added; descriptive

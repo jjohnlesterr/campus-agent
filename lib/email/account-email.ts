@@ -1,4 +1,4 @@
-// "Your Campus Agent account" email for admin-provisioned students. Pure (no
+// "Your Campus Agent account" email for accounts an admin creates manually. Pure (no
 // server imports) so it can be tested. The temporary password exists only in
 // this message and in memory during the request — it is never stored or logged.
 
@@ -53,7 +53,7 @@ export function buildAccountEmail({
     "",
     intro,
     "",
-    "School email:",
+    "Email:",
     email,
     "",
     "Temporary password:",
@@ -78,7 +78,7 @@ export function buildAccountEmail({
     <tr><td style="padding:28px">
       <p style="margin:0 0 16px;font-size:15px">Hello ${escapeHtml(fullName)},</p>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.5">${escapeHtml(intro)}</p>
-      <p style="${label}">School email</p>
+      <p style="${label}">Email</p>
       <p style="${value}">${escapeHtml(email)}</p>
       <p style="${label}">Temporary password</p>
       <p style="${value};font-family:Consolas,Menlo,monospace;font-size:16px;letter-spacing:.03em">${escapeHtml(temporaryPassword)}</p>

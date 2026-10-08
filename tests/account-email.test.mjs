@@ -24,7 +24,7 @@ test('account-created email has the requested content', () => {
   for (const line of [
     'Hello Juan Dela Cruz,',
     'Your Campus Agent account has been created by your university administrator.',
-    'School email:\njuan@school.edu',
+    'Email:\njuan@school.edu',
     'Temporary password:\nAb3dEf6hJk9m',
     'Sign in:\nhttps://campus.example/login',
     'You will be asked to create a new password the first time you sign in.',

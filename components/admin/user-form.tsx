@@ -5,24 +5,27 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useActionState, useState, useTransition } from "react"
 
-import { type EmailStatus, createStudent, resetStudentPassword, updateStudent } from "@/app/admin/users/actions"
+import { type EmailStatus, createUser, resetUserPassword, updateUser } from "@/app/admin/users/actions"
 import { Field, fieldAria, selectClass } from "@/components/shared/form-field"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { programsForDepartment } from "@/lib/programs"
+import { USER_TYPES } from "@/lib/user-types"
 
 type Option = { id: string; code: string; name: string }
 export type ProgramOption = Option & { department_id: string }
 type Errors = Record<string, string>
 
-export type StudentValues = {
+export type UserValues = {
   id: string
   full_name: string
-  student_id: string
   email: string
-  department_id: string
-  program_id: string
+  user_type: string
+  intended_department_id: string
+  intended_program_id: string
+  // Legacy student details (accounts created before public sign-up).
+  student_id: string
   year_level: string
 }
 
@@ -53,19 +56,22 @@ function ProfileFields({
   programs,
   errors: e,
   values,
+  showLegacy,
 }: {
   departments: Option[]
   programs: ProgramOption[]
   errors: Errors
-  values?: Partial<StudentValues>
+  values?: Partial<UserValues>
+  /** Student ID and year level: only for older accounts that already have them. */
+  showLegacy?: boolean
 }) {
-  const [departmentId, setDepartmentId] = useState(values?.department_id ?? "")
-  const [programId, setProgramId] = useState(values?.program_id ?? "")
+  const [departmentId, setDepartmentId] = useState(values?.intended_department_id ?? "")
+  const [programId, setProgramId] = useState(values?.intended_program_id ?? "")
   const departmentPrograms = programsForDepartment(programs, departmentId)
   const programHint = !departmentId
-    ? "Choose a department first."
+    ? "Choose a college first."
     : departmentPrograms.length === 0
-      ? "No verified programs are listed for this department yet."
+      ? "No verified programs are listed for this college yet."
       : undefined
 
   return (
@@ -74,41 +80,31 @@ function ProfileFields({
         <Input id="full_name" name="full_name" defaultValue={values?.full_name} autoComplete="off" required {...fieldAria("full_name", e.full_name)} />
       </Field>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="student_id" label="Student ID" error={e.student_id}>
-          <Input id="student_id" name="student_id" defaultValue={values?.student_id} autoComplete="off" required {...fieldAria("student_id", e.student_id)} />
-        </Field>
-        <Field id="year_level" label="Year level" error={e.year_level}>
-          <select id="year_level" name="year_level" required defaultValue={values?.year_level ?? ""} className={selectClass} {...fieldAria("year_level", e.year_level)}>
-            <option value="" disabled>
-              Choose…
+      <Field id="user_type" label="User type" optional error={e.user_type}>
+        <select id="user_type" name="user_type" defaultValue={values?.user_type ?? ""} className={selectClass} {...fieldAria("user_type", e.user_type)}>
+          <option value="">Not set</option>
+          {USER_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
             </option>
-            {YEAR_LEVELS.map((y) => (
-              <option key={y} value={y}>
-                Year {y}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+          ))}
+        </select>
+      </Field>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="department_id" label="Department" error={e.department_id}>
+        <Field id="intended_department_id" label="Intended college" optional error={e.intended_department_id}>
           <select
-            id="department_id"
-            name="department_id"
-            required
+            id="intended_department_id"
+            name="intended_department_id"
             value={departmentId}
             onChange={(event) => {
               setDepartmentId(event.target.value)
               setProgramId("")
             }}
             className={selectClass}
-            {...fieldAria("department_id", e.department_id)}
+            {...fieldAria("intended_department_id", e.intended_department_id)}
           >
-            <option value="" disabled>
-              Choose…
-            </option>
+            <option value="">Not set</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id} title={d.name}>
                 {d.code} — {d.name}
@@ -116,15 +112,15 @@ function ProfileFields({
             ))}
           </select>
         </Field>
-        <Field id="program_id" label="Program" optional hint={programHint} error={e.program_id}>
+        <Field id="intended_program_id" label="Intended program" optional hint={programHint} error={e.intended_program_id}>
           <select
-            id="program_id"
-            name="program_id"
+            id="intended_program_id"
+            name="intended_program_id"
             value={programId}
             onChange={(event) => setProgramId(event.target.value)}
             disabled={departmentPrograms.length === 0}
             className={selectClass}
-            {...fieldAria("program_id", e.program_id, Boolean(programHint))}
+            {...fieldAria("intended_program_id", e.intended_program_id, Boolean(programHint))}
           >
             <option value="">No program selected</option>
             {departmentPrograms.map((p) => (
@@ -135,6 +131,25 @@ function ProfileFields({
           </select>
         </Field>
       </div>
+
+      {showLegacy && (
+        <fieldset className="grid gap-5 rounded-md border px-4 pt-3 pb-4 sm:grid-cols-2">
+          <legend className="px-1 text-xs text-muted-foreground">Legacy student record</legend>
+          <Field id="student_id" label="Student ID" optional error={e.student_id}>
+            <Input id="student_id" name="student_id" defaultValue={values?.student_id} autoComplete="off" {...fieldAria("student_id", e.student_id)} />
+          </Field>
+          <Field id="year_level" label="Year level" optional error={e.year_level}>
+            <select id="year_level" name="year_level" defaultValue={values?.year_level ?? ""} className={selectClass} {...fieldAria("year_level", e.year_level)}>
+              <option value="">Not set</option>
+              {YEAR_LEVELS.map((y) => (
+                <option key={y} value={y}>
+                  Year {y}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </fieldset>
+      )}
     </>
   )
 }
@@ -207,7 +222,7 @@ function EmailStatusNote({ status, created }: { status: EmailStatus; created: bo
     return (
       <p role="status" className="flex items-start gap-2 rounded-md border border-[var(--success-border)] bg-[var(--success-surface)] px-3 py-2 text-sm text-[var(--success)]">
         <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <span>Sign-in instructions were sent to the student&apos;s email.</span>
+        <span>Sign-in instructions were sent to the user&apos;s email.</span>
       </p>
     )
   }
@@ -215,8 +230,8 @@ function EmailStatusNote({ status, created }: { status: EmailStatus; created: bo
     <p role="status" className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm text-foreground">
       <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span>
-        {created ? "Student account created successfully." : "Temporary password reset successfully."}{" "}
-        {EMAIL_UNAVAILABLE[status]} Please copy the temporary password below and share it with the student.
+        {created ? "Account created successfully." : "Temporary password reset successfully."}{" "}
+        {EMAIL_UNAVAILABLE[status]} Please copy the temporary password below and share it with the user.
       </span>
     </p>
   )
@@ -231,9 +246,9 @@ function FormError({ message }: { message?: string }) {
   )
 }
 
-// ---------- Create ----------
+// ---------- Create (manual; public sign-up is the normal path) ----------
 
-export function CreateStudentForm({
+export function CreateUserForm({
   departments,
   programs,
   defaultDepartmentId,
@@ -247,9 +262,9 @@ export function CreateStudentForm({
   disabled?: boolean
 }) {
   const router = useRouter()
-  const [state, formAction, pending] = useActionState(createStudent, undefined)
+  const [state, formAction, pending] = useActionState(createUser, undefined)
   const [dismissed, setDismissed] = useState(false)
-  // Remounting the fields is the reset for "Add another student".
+  // Remounting the fields is the reset for "Create another account".
   const [formKey, setFormKey] = useState(0)
   const onSubmit = useManualSubmit(formAction, () => setDismissed(false))
 
@@ -264,22 +279,22 @@ export function CreateStudentForm({
   return (
     <>
       <form key={formKey} onSubmit={onSubmit} className="flex max-w-xl flex-col gap-5">
-        <ProfileFields departments={departments} programs={programs} errors={e} values={{ department_id: defaultDepartmentId }} />
+        <ProfileFields departments={departments} programs={programs} errors={e} values={{ intended_department_id: defaultDepartmentId }} />
 
-        <Field id="email" label="School email" hint="The student signs in with this email." error={e.email}>
+        <Field id="email" label="Email" hint="The user signs in with this email." error={e.email}>
           <Input id="email" name="email" type="email" autoComplete="off" required {...fieldAria("email", e.email, true)} />
         </Field>
 
         <TemporaryPasswordField
           error={e.password}
-          hint="At least 8 characters. The student must change it on first login. It isn't stored by Campus Agent."
+          hint="At least 8 characters. The user must change it on first login. It isn't stored by Campus Agent."
         />
 
         <FormError message={state && !state.created ? state.error : undefined} />
 
         <div className="flex gap-2">
           <Button type="submit" size="lg" disabled={pending || disabled}>
-            {pending ? "Creating account…" : "Create student account"}
+            {pending ? "Creating account…" : "Create account"}
           </Button>
           <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "lg" })}>
             Cancel
@@ -290,7 +305,7 @@ export function CreateStudentForm({
       <Dialog open={Boolean(created) && !dismissed} onOpenChange={(open) => !open && addAnother()}>
         <DialogContent className="gap-0 p-0 sm:max-w-md">
           <DialogHeader className="border-b px-6 pt-5 pb-4">
-            <DialogTitle className="text-base font-semibold">Student account created</DialogTitle>
+            <DialogTitle className="text-base font-semibold">Account created</DialogTitle>
             <DialogDescription>
               Sign-in details for {created?.fullName}. The temporary password is shown only once.
             </DialogDescription>
@@ -309,13 +324,13 @@ export function CreateStudentForm({
                 </dd>
               </div>
               <p className="text-xs text-muted-foreground">
-                On first sign-in the student is asked to choose a new password before using Campus Agent.
+                On first sign-in the user is asked to choose a new password before using Campus Agent.
               </p>
             </dl>
           )}
           <DialogFooter className="mx-0 mb-0 border-t px-6 py-4">
             <Button type="button" variant="outline" onClick={addAnother}>
-              Add another student
+              Create another account
             </Button>
             <Button type="button" onClick={() => router.push(backHref)}>
               Done
@@ -329,28 +344,34 @@ export function CreateStudentForm({
 
 // ---------- Edit ----------
 
-export function EditStudentForm({
-  student,
+export function EditUserForm({
+  user,
   departments,
   programs,
   disabled,
 }: {
-  student: StudentValues
+  user: UserValues
   departments: Option[]
   programs: ProgramOption[]
   disabled?: boolean
 }) {
-  const [state, formAction, pending] = useActionState(updateStudent, undefined)
+  const [state, formAction, pending] = useActionState(updateUser, undefined)
   const onSubmit = useManualSubmit(formAction)
   const e = state?.fieldErrors ?? {}
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-5">
-      <input type="hidden" name="id" value={student.id} />
-      <ProfileFields departments={departments} programs={programs} errors={e} values={student} />
+      <input type="hidden" name="id" value={user.id} />
+      <ProfileFields
+        departments={departments}
+        programs={programs}
+        errors={e}
+        values={user}
+        showLegacy={Boolean(user.student_id || user.year_level)}
+      />
 
-      <Field id="email" label="School email" hint="The sign-in email can't be changed here.">
-        <Input id="email" value={student.email} readOnly disabled aria-describedby="email-hint" />
+      <Field id="email" label="Email" hint="The sign-in email can't be changed here.">
+        <Input id="email" value={user.email} readOnly disabled aria-describedby="email-hint" />
       </Field>
 
       <FormError message={state?.error} />
@@ -369,8 +390,8 @@ export function EditStudentForm({
 
 // ---------- Reset temporary password ----------
 
-export function ResetPasswordForm({ studentId, disabled }: { studentId: string; disabled?: boolean }) {
-  const [state, formAction, pending] = useActionState(resetStudentPassword.bind(null, studentId), undefined)
+export function ResetPasswordForm({ userId, disabled }: { userId: string; disabled?: boolean }) {
+  const [state, formAction, pending] = useActionState(resetUserPassword.bind(null, userId), undefined)
   const onSubmit = useManualSubmit(formAction)
   const failed = state && state.temporaryPassword === undefined ? state : undefined
   const e = failed?.fieldErrors ?? {}
@@ -380,7 +401,7 @@ export function ResetPasswordForm({ studentId, disabled }: { studentId: string; 
       <div className="flex max-w-xl flex-col gap-3">
         <EmailStatusNote status={state.emailStatus} created={false} />
         <p className="text-sm text-muted-foreground">
-          New temporary password (shown only once). The student must change it on their next sign-in.
+          New temporary password (shown only once). The user must change it on their next sign-in.
         </p>
         <OneTimePassword value={state.temporaryPassword} />
       </div>
@@ -391,7 +412,7 @@ export function ResetPasswordForm({ studentId, disabled }: { studentId: string; 
     <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-4">
       <TemporaryPasswordField
         error={e.password}
-        hint="Replaces the student's current password. They must choose a new one on their next sign-in."
+        hint="Replaces the user's current password. They must choose a new one on their next sign-in."
       />
       <FormError message={failed?.error} />
       <div>
