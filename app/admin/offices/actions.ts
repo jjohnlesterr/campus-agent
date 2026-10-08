@@ -18,7 +18,7 @@ const officeSchema = z.object({
 
 function revalidate() {
   revalidatePath("/admin/offices")
-  revalidatePath("/admin/locations")
+  revalidatePath("/admin/campus-map")
   revalidatePath("/app/offices")
   revalidatePath("/app/map")
 }

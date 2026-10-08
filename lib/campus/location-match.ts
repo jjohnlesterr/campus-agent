@@ -17,10 +17,15 @@ export type LocationQuestion = {
 
 export type MapPlace = {
   name: string
+  /** The building's name, or "Hall (Wing), Building" for places inside a wing. */
   building_name: string | null
   building_number: number
   floor: string | null
   aliases: string[]
+  /** building = the building itself; area = a wing/hall; place = something inside. */
+  kind?: "building" | "area" | "place"
+  /** Wing/hall the place is in, e.g. "Dr. Jorge Bocobo Hall (Left Wing)". */
+  area?: string | null
 }
 
 export type LocationMatch =
@@ -171,7 +176,7 @@ export function matchPlace(
 }
 
 export function isBuilding(place: MapPlace) {
-  return place.name === place.building_name
+  return place.kind ? place.kind === "building" : place.name === place.building_name
 }
 
 function withArticle(building: string) {
@@ -221,4 +226,46 @@ export function notFoundSentence(target: string[], language: Language) {
   return language === "fil"
     ? `Hindi ko ma-verify ang eksaktong lokasyon ng “${asked}” mula sa opisyal na campus map.`
     : `I couldn't verify the exact location of “${asked}” from the official campus map.`
+}
+
+// "What is in Building 20?", "What offices are inside Gloria D. Lacson Building?",
+// "Ano ang nasa Building 1?" — asks for a building's contents, not its location.
+const CONTENTS_EN =
+  /\b(?:what|which)\b(?: \w+){0,3} (?:is|are) (?:in|inside|located in|found in|at)\b|\bwhat(?:s| is| are)? (?:in|inside)\b|\b(?:offices|colleges|rooms) (?:in|inside)\b/
+const CONTENTS_FIL = /\b(?:ano|anong|anu)\b.*\b(?:nasa|sa loob ng|laman ng|meron sa)\b/
+const CONTENTS_STOPWORDS = new Set(["offices", "colleges", "rooms", "inside", "found", "there", "laman", "loob", "meron", "ano", "anong", "anu", "nasa", "areas", "places"])
+
+/** A question about what a building contains, and the words naming the building. */
+export function detectBuildingContentsQuestion(question: string): LocationQuestion | null {
+  const text = normalize(question)
+  const filipino = CONTENTS_FIL.test(text)
+  if (!filipino && !CONTENTS_EN.test(text)) return null
+  // "building" is a stopword for place names; keep "Building 20" as the number.
+  const target = keyTokens(text).filter((t) => !CONTENTS_STOPWORDS.has(t))
+  if (target.length === 0 || target.length > 8) return null
+  return { language: filipino ? "fil" : "en", target }
+}
+
+/** The places inside a building, grouped by wing/hall and floor, as markdown lines. */
+export function buildingContents(building: MapPlace, places: MapPlace[]) {
+  const inside = places.filter((p) => p.building_number === building.building_number && !isBuilding(p) && p.kind !== "area")
+  const groups = new Map<string, string[]>()
+  for (const place of inside) {
+    const label = [place.area, place.floor].filter(Boolean).join(" · ")
+    groups.set(label, [...(groups.get(label) ?? []), place.name])
+  }
+  // Hall, then floor (L1, L2 …); places with no floor recorded come last.
+  return [...groups]
+    .sort(([a], [b]) => (a === "" ? 1 : 0) - (b === "" ? 1 : 0) || a.localeCompare(b, undefined, { numeric: true }))
+    .map(([label, names]) => (label ? `- **${label}:** ${names.join(", ")}` : `- ${names.join(", ")}`))
+}
+
+/** The one-sentence lead for a building-contents answer. */
+export function contentsSentence(building: MapPlace, count: number, language: Language) {
+  const n = building.building_number
+  if (language === "fil") {
+    return count ? `Narito ang nasa ${building.name} (Building ${n}) ayon sa campus map:` : `Walang nakalistang opisina sa loob ng ${building.name} (Building ${n}) sa campus map.`
+  }
+  const subject = withArticle(building.name)
+  return count ? `According to the campus map, ${subject} (Building ${n}) has:` : `The campus map doesn't list any offices inside ${subject} (Building ${n}).`
 }

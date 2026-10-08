@@ -10,7 +10,7 @@ export default async function NewOfficePage() {
   return (
     <>
       <PageHeader title="New office" />
-      <div className="mt-6 rounded-lg border bg-background p-6">
+      <div className="mt-6 max-w-2xl rounded-lg border bg-background p-6">
         <OfficeForm
           locationNames={locationNames}
           values={{ name: "", head_name: "", office_hours: "", location: "" }}

@@ -27,7 +27,7 @@ export default async function EditOfficePage({ params }: PageProps<"/admin/offic
       <PageHeader title="Edit office">
         <DeleteButton action={deleteOffice.bind(null, office.id)} label={office.name} />
       </PageHeader>
-      <div className="mt-6 rounded-lg border bg-background p-6">
+      <div className="mt-6 max-w-2xl rounded-lg border bg-background p-6">
         <OfficeForm
           locationNames={locationNames}
           values={{
