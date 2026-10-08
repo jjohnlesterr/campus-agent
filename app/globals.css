@@ -184,3 +184,11 @@
     animation-delay: calc(var(--step, 0) * 120ms + 200ms);
   }
 }
+/* Landing-page nav links (How It Works, Sources, About) glide to their section.
+   Sections clear the sticky header with scroll-mt-20. Next.js turns this off during
+   route changes (data-scroll-behavior on <html>), so only in-page jumps animate. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:has(.landing-page) {
+    scroll-behavior: smooth;
+  }
+}

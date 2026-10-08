@@ -1,20 +1,22 @@
-import { BookOpen, Building2, CalendarDays, FileCheck2, ListChecks, MapPin, ShieldCheck, UserRound } from "lucide-react"
+import { BookOpen, Building2, CalendarDays, FileCheck2, ListChecks, MapPin, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 
 import { ExampleAnswer } from "@/components/landing/example-answer"
 import { LandingNav } from "@/components/landing/landing-nav"
+import { LandingFooter } from "@/components/landing/landing-footer"
 import { PublicAsk } from "@/components/landing/public-ask"
-import { Logo } from "@/components/shared/logo"
 import { HowItWorksSteps } from "@/components/shared/how-it-works-steps"
+import { getCurrentProfile, homePathFor } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
+import { GUEST_QUESTION_LIMIT, readGuestQuota, remainingQuestions } from "@/lib/guest-quota"
 
-// Public questions for applicants, incoming students, transferees and visitors.
-// Current-student topics (INC, grades, clearance…) live in the signed-in app.
+// Questions incoming freshmen and visitors ask first.
 const SUGGESTIONS = [
-  "How do I enroll?",
-  "What are the admission requirements?",
+  "How do I apply for admission?",
+  "What programs does CECT offer?",
+  "What are the freshman requirements?",
   "Where is the Registrar?",
-  "What programs are offered?",
+  "Are there any new university announcements?",
 ]
 
 const SOURCES = [
@@ -31,41 +33,55 @@ const ABOUT_POINTS = [
 ]
 
 export default async function LandingPage() {
-  const { assistantName, universityName } = await getBranding()
+  const [{ assistantName }, profile, quota] = await Promise.all([getBranding(), getCurrentProfile(), readGuestQuota()])
+  // Signed-in users have no limit; guests see how many free questions are left.
+  const remaining = profile ? null : remainingQuestions(quota)
 
   return (
     <div className="landing-page flex flex-1 flex-col bg-background">
-      <LandingNav />
+      <LandingNav
+        account={
+          profile
+            ? { homeHref: homePathFor(profile.role), profileHref: profile.role === "admin" ? null : "/app/profile" }
+            : null
+        }
+      />
 
       <main className="flex-1">
         {/* Hero: centered headline and the public ask box */}
         <section className="border-b bg-[var(--canvas)]">
           <div className="mx-auto flex max-w-3xl flex-col items-center px-4 pt-16 pb-20 text-center sm:px-6 lg:pt-24 lg:pb-24">
-            <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">Your campus AI assistant</p>
+            <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">For incoming freshmen and visitors</p>
             <h1 className="mt-4 text-4xl leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-5xl lg:text-[3.5rem]">
-              Know what to do next <br className="hidden sm:block" />
-              on campus.
+              New to campus? <br className="hidden sm:block" />
+              Ask {assistantName}.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              {assistantName} turns {universityName ? `${universityName}'s` : "your university's"} handbook, policies, memos,
-              and campus information into clear guidance so you can find the right process, office, and official source.
+              Get quick answers about admissions, enrollment, programs, campus offices, policies, announcements, and university
+              services.
             </p>
 
             <div className="mt-9 w-full text-left">
-              <PublicAsk suggestions={SUGGESTIONS} />
+              <PublicAsk suggestions={SUGGESTIONS} initialRemaining={remaining} />
             </div>
 
-            <p className="mt-6 flex max-w-xl items-start gap-2.5 rounded-lg border bg-background/70 px-4 py-3 text-left text-sm leading-relaxed text-muted-foreground">
-              <UserRound className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-              <span>
-                Public guidance covers general university information for applicants, incoming students and visitors.
-                Current students can{" "}
-                <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
-                  sign in
+            {profile ? (
+              <p className="mt-5 text-sm text-muted-foreground">
+                You&apos;re signed in.{" "}
+                <Link href="/app" className="font-medium text-primary underline-offset-4 hover:underline">
+                  Open {assistantName}
                 </Link>{" "}
-                for full access.
-              </span>
-            </p>
+                to save your conversations.
+              </p>
+            ) : remaining === GUEST_QUESTION_LIMIT ? (
+              <p className="mt-5 text-sm text-muted-foreground">
+                {GUEST_QUESTION_LIMIT} questions free.{" "}
+                <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
+                  Sign up
+                </Link>{" "}
+                to continue and save your chats.
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -81,7 +97,7 @@ export default async function LandingPage() {
             </div>
             <HowItWorksSteps
               className="mt-12 grid gap-10 md:grid-cols-3 md:gap-8"
-              askExample="“How do I enroll?” or “Where is the Registrar?”"
+              askExample="“How do I apply for admission?” or “Where is the Registrar?”"
             />
             <div className="mx-auto mt-14 max-w-xl">
               <ExampleAnswer />
@@ -124,9 +140,9 @@ export default async function LandingPage() {
               <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">About</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">About {assistantName}</h2>
               <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">
-                {assistantName} helps students and future students navigate university information through verified
-                school sources. It turns policies, procedures, campus information and official references into clear
-                guidance that is easier to understand and follow.
+                {assistantName} is an AI-powered university information and process navigator designed primarily for
+                incoming freshmen and campus visitors. It turns admission steps, policies, campus information and
+                official references into clear guidance that is easier to understand and follow.
               </p>
             </div>
             <ul className="divide-y rounded-lg border bg-background shadow-[0_1px_2px_oklch(0.3_0.05_260/0.05)]">
@@ -146,14 +162,7 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <Logo className="h-5 w-auto self-start sm:self-auto" />
-          <p>
-            © {new Date().getFullYear()} {assistantName}. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <LandingFooter assistantName={assistantName} />
     </div>
   )
 }
