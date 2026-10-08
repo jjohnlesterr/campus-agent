@@ -56,13 +56,14 @@ function database(options = {}) {
   const blob = options.blob ?? new Blob([pdfFixture()], { type: sources.PDF })
   const db = {
     storage: { from: () => ({
-      download: async () => ({ data: options.downloadError ? null : blob, error: options.downloadError ?? null }),
+      upload: async (path, file) => { state.uploaded = { path, file }; return { error: options.uploadError ?? null } },
+      download: async (path) => ({ data: options.downloadError ? null : state.uploaded?.path === path ? state.uploaded.file : blob, error: options.downloadError ?? null }),
       remove: async paths => { state.removed.push(...paths); return { error: options.cleanupError ?? null } },
     }) },
     from: table => {
       let operation = 'select', value
       const query = {
-        select() { return query }, eq() { return query }, neq() { return query }, in() { return query },
+        select() { return query }, eq() { return query }, neq() { return query }, in() { return query }, is() { return query },
         insert(v) { operation = 'insert'; value = v; return query },
         update(v) { operation = 'update'; value = v; return query },
         delete() { operation = 'delete'; return query },
@@ -70,11 +71,12 @@ function database(options = {}) {
         then(resolve, reject) { return Promise.resolve(execute()).then(resolve, reject) },
       }
       function execute() {
+        if (operation === 'select' && table === 'knowledge_collections') return { data: options.collection ?? null, error: null }
         if (operation === 'select') return { data: state.doc, error: options.lookupError ?? null }
         if (operation === 'insert' && table === 'documents') {
           state.inserts++
           if (options.insertError) return { data: null, error: options.insertError }
-          state.doc = { id: 'new-source', ...value }
+          state.doc = { id: '12345678-1234-4234-8234-0000000000ff', ...value }
           return { data: state.doc, error: null }
         }
         if (operation === 'insert') {
@@ -94,7 +96,7 @@ function database(options = {}) {
     },
   }
   const ingest = load('lib/rag/ingest.ts', {
-    'server-only': {}, '@/lib/rag/chunk': chunk, '@/lib/rag/extract': extract,
+    'server-only': {}, '@/lib/rag/chunk': chunk, '@/lib/rag/extract': extract, '@/lib/sources': sources,
     '@/lib/supabase/server': { createClient: async () => db },
     '@/lib/rag/embeddings': { embeddingsAvailable: () => false },
   })
@@ -109,9 +111,10 @@ function database(options = {}) {
     'next/cache': { revalidatePath: () => {} }, 'next/navigation': { redirect: () => {} },
     '@/lib/auth': { requireAdmin: async () => { if (options.authError) throw new Error('Unauthorized') } },
     '@/lib/knowledge/analyze': analyze, '@/lib/sources': sources,
+    '@/lib/knowledge/source-order': load('lib/knowledge/source-order.ts', { 'server-only': {} }),
     '@/lib/supabase/server': { createClient: async () => db },
   })
-  const input = { title: 'Upload test', sourceType: 'policy', visibility: 'public', filePath: uploadPath, fileName: 'test.pdf', fileSize: blob.size }
+  const input = { title: 'Upload test', sourceType: 'policy', filePath: uploadPath, fileName: 'test.pdf', fileSize: blob.size }
   return { state, input, ...actions }
 }
 
@@ -123,6 +126,8 @@ test('uploading a PDF only registers it: nothing is extracted until Analyze with
   assert.equal(result.ok, true)
   assert.equal(result.referenceOnly, false)
   assert.equal(state.doc.status, 'uploaded')
+  assert.equal(state.doc.visibility, 'public', 'new sources are public')
+  assert.equal(state.doc.description, null, 'description is optional')
   assert.equal(state.chunks.length, 0)
   assert.deepEqual(state.updates, [])
 })
@@ -140,19 +145,101 @@ test('Analyze with AI runs real extraction/chunking and stores page/section meta
   assert.equal(state.chunks[0].embedding, null)
 })
 
-test('PNG and JPEG sources under Other are Ready without extraction', async () => {
-  for (const [bytes, mime, extension] of [
-    [Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF2kAAAAASUVORK5CYII=', 'base64'), 'image/png', 'png'],
-    [Buffer.from([255, 216, 255, 224, 0, 16]), 'image/jpeg', 'jpg'],
+test('Knowledge Library uploads are PDF only: PNG and JPEG files are rejected and no source is saved', async () => {
+  for (const [bytes, extension] of [
+    [Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jF2kAAAAASUVORK5CYII=', 'base64'), 'png'],
+    [Buffer.from([255, 216, 255, 224, 0, 16]), 'jpg'],
   ]) {
     const { state, input, registerSource } = database({ blob: new Blob([bytes]), ingest: { ingestDocument: () => { throw new Error('Images must not be processed') } } })
-    const result = await registerSource({ ...input, sourceType: 'other', filePath: uploadPath.replace('.pdf', `.${extension}`), fileName: `test.${extension}` })
-    assert.equal(result.ok, true)
-    assert.equal(result.referenceOnly, true)
-    assert.equal(state.doc.mime_type, mime)
-    assert.equal(state.doc.status, 'ready')
+    const result = await registerSource({ ...input, sourceType: 'other', filePath: uploadPath.replace('.pdf', `.${extension}`), fileName: `test.${extension}`, fileSize: bytes.length })
+    assert.equal(result.ok, false)
+    assert.match(result.error, /Only PDF files are supported/)
+    assert.equal(state.inserts, 0)
     assert.equal(state.chunks.length, 0)
   }
+  assert.deepEqual(sources.acceptedMimeTypes(), ['application/pdf'])
+})
+
+test('a collection whose name implies a source type sets it; otherwise the chosen type is required', async () => {
+  const collectionId = '12345678-1234-4234-8234-123456789abd'
+  const handbook = database({ collection: { name: 'Student Handbook' } })
+  const withoutType = { ...handbook.input, sourceType: undefined }
+  assert.equal((await handbook.registerSource({ ...withoutType, collectionId })).ok, true)
+  assert.equal(handbook.state.doc.document_type, 'handbook')
+  assert.equal(handbook.state.doc.collection_id, collectionId)
+
+  // The collection's type wins over a type sent by the browser.
+  const overridden = database({ collection: { name: 'Student Handbook' } })
+  await overridden.registerSource({ ...overridden.input, sourceType: 'other', collectionId })
+  assert.equal(overridden.state.doc.document_type, 'handbook')
+
+  const general = database({ collection: { name: 'General References' } })
+  assert.equal((await general.registerSource({ ...withoutType, collectionId })).ok, false)
+  assert.equal(general.state.inserts, 0)
+  await general.registerSource({ ...general.input, collectionId })
+  assert.equal(general.state.doc.document_type, 'policy')
+
+  const missing = database()
+  assert.equal((await missing.registerSource({ ...missing.input, collectionId })).ok, false)
+  assert.equal(missing.state.inserts, 0)
+})
+
+test('collection names map to source types only when the name is clear', () => {
+  assert.equal(sources.collectionSourceType('Student Handbook'), 'handbook')
+  assert.equal(sources.collectionSourceType('Academic Calendar 2026'), 'calendar')
+  assert.equal(sources.collectionSourceType('Registrar Memos'), 'policy')
+  assert.equal(sources.collectionSourceType('University Policies'), 'policy')
+  assert.equal(sources.collectionSourceType('Announcements'), 'announcement')
+  assert.equal(sources.collectionSourceType('General References'), null)
+  assert.equal(sources.collectionSourceType(null), null)
+})
+
+test('a text source is stored unchanged as a plain-text file in its collection and saved as Draft', async () => {
+  const collectionId = '12345678-1234-4234-8234-123456789abd'
+  const { state, createTextSource } = database({ collection: { name: 'Student Handbook' } })
+  const content = 'Transferees enroll at the Registrar.\n\n## Late enrollment\nLate enrollment requires approval from the Registrar.'
+  const form = new FormData()
+  for (const [k, v] of Object.entries({ title: 'Enrollment note', description: '  Clarifies enrollment for transferees.  ', content, referenceLabel: 'Registrar memo, Aug 2026', sourceUrl: 'https://example.edu/memo', collectionId, intent: 'draft' })) form.set(k, v)
+  await createTextSource({}, form)
+  assert.equal(state.doc.mime_type, 'text/plain')
+  assert.equal(state.doc.document_type, 'handbook', 'the collection sets the source type')
+  assert.equal(state.doc.collection_id, collectionId)
+  assert.equal(state.doc.status, 'uploaded', 'Save as Draft does not analyze')
+  assert.equal(state.doc.reference_label, 'Registrar memo, Aug 2026')
+  assert.equal(state.doc.description, 'Clarifies enrollment for transferees.')
+  assert.equal(state.doc.source_url, 'https://example.edu/memo')
+  assert.match(state.doc.file_path, /^sources\/[0-9a-f-]{36}\.txt$/)
+  assert.equal(await state.uploaded.file.text(), content, 'the original text is kept exactly')
+  assert.equal(state.chunks.length, 0)
+})
+
+test('Organize with AI chunks a text source without pages; text before the first heading is named after the source', async () => {
+  const { state, createTextSource } = database()
+  const form = new FormData()
+  for (const [k, v] of Object.entries({ title: 'Enrollment note', content: 'Transferees enroll at the Registrar during the first week of classes.\n\n## Late enrollment\nLate enrollment requires approval from the Registrar and a late fee.', referenceLabel: '', sourceUrl: '', visibility: 'authenticated', collectionId: '', intent: 'organize' })) form.set(k, v)
+  await createTextSource({}, form)
+  assert.equal(state.doc.document_type, 'other')
+  assert.equal(state.doc.collection_id, null)
+  assert.equal(state.doc.visibility, 'public', 'a visibility sent by the browser is ignored')
+  assert.equal(state.doc.status, 'ready')
+  assert.deepEqual(state.chunks.map(c => c.section_title), ['Enrollment note', 'Late enrollment'])
+  assert(state.chunks.every(c => c.page_number === null && c.metadata.page_count === undefined))
+})
+
+test('text sources reject invalid links and have no file to replace', async () => {
+  const bad = database()
+  const form = new FormData()
+  for (const [k, v] of Object.entries({ title: 'Enrollment note', content: 'Verified enrollment text.', referenceLabel: '', sourceUrl: 'javascript:alert(1)', collectionId: '', intent: 'draft' })) form.set(k, v)
+  const result = await bad.createTextSource({}, form)
+  assert.match(result.error, /https/)
+  assert.equal(bad.state.inserts, 0)
+  assert.equal(bad.state.uploaded, undefined)
+
+  const text = database()
+  text.state.doc = { id: sourceId, file_path: 'sources/12345678-1234-1234-1234-123456789abd.txt', mime_type: 'text/plain', document_type: 'other', status: 'ready' }
+  const replaced = await text.replaceSourceFile(sourceId, { filePath: uploadPath, fileName: 'new.pdf', fileSize: 10 })
+  assert.equal(replaced.ok, false)
+  assert.equal(text.state.doc.mime_type, 'text/plain')
 })
 
 test('the campus map cannot be registered as a Knowledge Library source (it belongs to Admin › Campus Map)', async () => {
@@ -218,4 +305,22 @@ test('auth is still required for registration, analysis, archive, delete and cle
   await assert.rejects(discardUnregisteredSource(uploadPath), /Unauthorized/)
   assert.equal(state.inserts, 0)
   assert.deepEqual(state.removed, [])
+})
+
+test('editing source details changes only the title and description', async () => {
+  const { state, input, registerSource, updateSourceDetails } = database({ failStatus: 'no-such-status' })
+  await registerSource({ ...input, description: 'Old note' })
+  const before = structuredClone(state.doc)
+  const id = state.doc.id
+  assert.deepEqual(await updateSourceDetails(id, { title: '  WUP Handbook – Section 1  ', description: '   ' }), { ok: true })
+  assert.equal(state.doc.title, 'WUP Handbook – Section 1', 'trimmed')
+  assert.equal(state.doc.description, null, 'an empty description is cleared')
+  const { title, description, ...rest } = state.doc
+  const { title: oldTitle, description: oldDescription, ...restBefore } = before
+  assert.deepEqual(rest, restBefore, 'file, type, status and analysis data are unchanged')
+  assert.notEqual(title + description, oldTitle + oldDescription)
+  // A blank title is refused without writing.
+  const updates = state.updates.length
+  assert.equal((await updateSourceDetails(id, { title: '   ', description: 'x' })).ok, false)
+  assert.equal(state.updates.length, updates)
 })

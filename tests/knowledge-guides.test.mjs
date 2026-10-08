@@ -15,12 +15,14 @@ function load(relative, mocks = {}) {
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename })((id) => id in mocks ? mocks[id] : nodeRequire(id), loaded, loaded.exports)
   return loaded.exports
 }
-const topics = load('lib/knowledge/topics.ts')
+const tables = load('lib/knowledge/tables.ts')
+const topics = load('lib/knowledge/topics.ts', { '@/lib/knowledge/tables': tables })
+const sources = load('lib/sources.ts')
 const sourceId = '12345678-1234-4234-8234-123456789abc'
 const sections = [
   { id: '12345678-1234-4234-8234-123456789ab1', chunk_index: 0, page_number: 1, section_title: '3. Graduation Honors', content: '3. Graduation Honors Students must meet the stated academic criteria. The handbook sets minimum grades for graduation honors.' },
   { id: '12345678-1234-4234-8234-123456789ab2', chunk_index: 1, page_number: 2, section_title: 'GRADUATION HONORS', content: 'Consult the Registrar for further information.' },
-  { id: '12345678-1234-4234-8234-123456789ab3', chunk_index: 2, page_number: 3, section_title: '4. Transfer', content: '4. Transfer A student must: 1. Submit a written request. 2. Settle financial obligations. Students must observe the university rules.' },
+  { id: '12345678-1234-4234-8234-123456789ab3', chunk_index: 2, page_number: 3, section_title: '4. Transfer', content: '4. Transfer Procedure: 1. Submit a written request. 2. Settle financial obligations. Students must observe the university rules.' },
   { id: '12345678-1234-4234-8234-123456789ab4', chunk_index: 3, page_number: 4, section_title: '5. Leave of Absence', content: '5. Leave of Absence The handbook does not state a leave of absence procedure or specific requirements.' },
 ]
 function database(snapshot = { source: { id: sourceId, title: 'Student Handbook', status: 'ready', mime_type: 'application/pdf', visibility: 'public' }, chunks: sections }, options = {}) {
@@ -72,15 +74,16 @@ function database(snapshot = { source: { id: sourceId, title: 'Student Handbook'
       return query
     },
   }
-  const generation = load('lib/knowledge/generation.ts', { 'server-only': {}, '@/lib/knowledge/topics': topics })
+  const generation = load('lib/knowledge/generation.ts', { 'server-only': {}, '@/lib/knowledge/topics': topics, '@/lib/sources': sources })
   const actions = load('app/admin/knowledge/actions.ts', {
     'next/cache': { revalidatePath: () => {} }, 'next/navigation': { redirect: (to) => { state.redirectedTo = to } },
     '@/lib/auth': { requireAdmin: async () => { if (options.authFailure) throw Error('Unauthorized') } },
-    '@/lib/supabase/server': { createClient: async () => db }, '@/lib/knowledge/topics': topics,
+    '@/lib/supabase/server': { createClient: async () => db }, '@/lib/knowledge/topics': topics, '@/lib/sources': sources,
   })
   const analyze = load('lib/knowledge/analyze.ts', {
-    'server-only': {}, '@/lib/knowledge/generation': generation, '@/lib/knowledge/topics': topics,
-    '@/lib/rag/ingest': { ingestDocument: async () => options.ingestResult ?? { ok: true, pages: 4, chunks: 4, embedded: 0 } },
+    'server-only': {}, '@/lib/knowledge/generation': generation, '@/lib/knowledge/topics': topics, '@/lib/sources': sources,
+    '@/lib/rag/ingest': { ingestDocument: async () => options.ingestResult ?? { ok: true, pages: 4, chunks: 4, embedded: 0, texts: options.texts ?? [] } },
+    '@/lib/knowledge/outline': { outlineSource: async (title, lines) => { state.outlineLines = lines; return options.outline ?? null } },
     '@/lib/ai/anthropic': { CLAUDE_MODEL: 'test-model', getAnthropic: () => ({ messages: { parse: async (request) => {
       state.claudeRequests = [...(state.claudeRequests ?? []), request]
       if (options.claudeFailure) throw new Error('Claude unavailable')
@@ -163,10 +166,9 @@ test('visibility remains inherited from the source', async () => {
   assert.equal((await saveGuide({ ...edits(guide), intent: 'published', reviewed: true })).ok, true); assert.equal(guide.visibility, 'authenticated')
 })
 test('all mutations still require an admin', async () => {
-  const { saveGuide, unpublishGuide, setGuideStatuses, setGuideArchived, deleteGuide, createManualEntry } = database(undefined, { authFailure: true })
+  const { saveGuide, unpublishGuide, setGuideStatuses, setGuideArchived, deleteGuide } = database(undefined, { authFailure: true })
   await assert.rejects(saveGuide({}), /Unauthorized/); await assert.rejects(unpublishGuide(sourceId), /Unauthorized/)
   await assert.rejects(setGuideArchived(sourceId, true), /Unauthorized/); await assert.rejects(deleteGuide(sourceId), /Unauthorized/)
-  await assert.rejects(createManualEntry({}, new FormData()), /Unauthorized/)
   await assert.rejects(setGuideStatuses([sourceId], 'published'), /Unauthorized/)
 })
 test('bulk actions change only the matching status in mixed selections and preserve every content/reference field', async () => {
@@ -219,20 +221,23 @@ test('library tabs are All / Published / Drafts / Archived, with safe defaults f
   assert.equal(library.libraryTab('draft'), 'draft'); assert.equal(library.libraryTab(['draft']), 'all'); assert.equal(library.libraryTab('bogus'), 'all')
   assert.equal(library.libraryTab('pdf'), 'all', 'old ?tab=pdf links show All'); assert.equal(library.libraryTab('manual'), 'all', 'old ?tab=manual links show All')
   const [handbook, map] = library.buildSources([
-    { id: 'pdf', title: 'Student Handbook 2026', status: 'ready', mime_type: 'application/pdf', document_type: 'handbook', summary: 'Policies and procedures', key_topics: ['Enrollment'], updated_at: '2026-10-01T00:00:00+00:00' },
-    { id: 'map', title: 'Campus Map', status: 'archived', mime_type: 'image/png', document_type: 'campus_map', summary: null, key_topics: [], updated_at: '2026-10-01T00:00:00+00:00' },
+    { id: 'pdf', title: 'Student Handbook 2026', status: 'ready', mime_type: 'application/pdf', document_type: 'handbook', description: 'Rules for freshmen and transferees', summary: 'Policies and procedures', key_topics: ['Enrollment'], updated_at: '2026-10-01T00:00:00+00:00' },
+    { id: 'map', title: 'Campus Map', status: 'archived', mime_type: 'image/png', document_type: 'campus_map', description: null, summary: null, key_topics: [], updated_at: '2026-10-01T00:00:00+00:00' },
   ], [
     { source_document_id: 'pdf', status: 'published', updated_at: '2026-10-03T00:00:00+00:00' },
     { source_document_id: 'pdf', status: 'draft', updated_at: '2026-10-02T00:00:00+00:00' },
     { source_document_id: null, status: 'draft', updated_at: '2026-10-05T00:00:00+00:00' },
   ])
   assert.deepEqual(handbook.counts, { total: 2, published: 1, draft: 1, archived: 0 })
+  assert.equal(handbook.description, 'Rules for freshmen and transferees')
   assert.equal(handbook.updatedAt, '2026-10-03T00:00:00+00:00')
   const manual = { kind: 'manual', id: 'm', title: 'How to contact the Registrar', status: 'published', category: 'Student Services', description: null, updatedAt: '2026-10-04T00:00:00+00:00' }
   const items = [handbook, map, manual]
   const ids = (tab, q = '') => library.filterLibrary(items, tab, q).map(i => i.id)
-  assert.deepEqual(ids('all'), ['m', 'pdf'])
-  assert.deepEqual(ids('published'), ['m', 'pdf']); assert.deepEqual(ids('draft'), ['pdf']); assert.deepEqual(ids('archived'), ['map'])
+  // Sources first, in the admin's drag-and-drop order; older manual entries after them.
+  assert.deepEqual(ids('all'), ['pdf', 'm'])
+  assert.deepEqual(ids('all', 'transferees'), ['pdf'], 'search matches the admin description')
+  assert.deepEqual(ids('published'), ['pdf', 'm']); assert.deepEqual(ids('draft'), ['pdf']); assert.deepEqual(ids('archived'), ['map'])
   assert.deepEqual(ids('all', 'registrar'), ['m']); assert.deepEqual(ids('all', 'enrollment'), ['pdf'])
 })
 test('analysis creates only Draft sections, keeps Published ones, and applies AI suggestions to new drafts only', async () => {
@@ -283,21 +288,34 @@ test('archive, restore and delete follow section status rules', async () => {
   assert.equal((await setGuideArchived(published.id, false)).ok, true); assert.equal(published.status, 'draft', 'restored sections need review again')
   assert.equal((await deleteGuide(draft.id)).ok, true); assert(!state.guides.includes(draft))
 })
-test('manual entries need no source file and can be created as Draft or Published', async () => {
-  const { state, createManualEntry, saveGuide } = database()
-  const form = (values) => { const data = new FormData(); for (const [k, v] of Object.entries(values)) data.set(k, v); return data }
-  const entry = { title: 'How to contact the Registrar', categoryId, content: 'Email the Registrar at the address on the official website.', responsibleOfficeId: '', referenceNote: 'Registrar memo', visibility: 'authenticated', status: 'draft' }
-  assert.match((await createManualEntry({}, form({ ...entry, content: 'short' }))).error, /content/)
-  assert.equal(state.guides.length, 0)
-  await createManualEntry({}, form(entry))
-  const [created] = state.guides
-  assert.equal(created.status, 'draft'); assert.equal(created.source_document_id, undefined); assert.equal(created.source_reference, 'Registrar memo')
-  assert.equal(created.content, entry.content); assert.match(state.redirectedTo, new RegExp(created.id))
-  // Manual entries publish without the source review checkbox.
+test('existing manual entries publish without a source review or page reference', async () => {
+  const { state, saveGuide } = database()
+  const created = { id: '22345678-1234-4234-8234-000000000099', title: 'How to contact the Registrar', status: 'draft', source_reference: 'Registrar memo', updated_at: '2026-10-02T00:00:00.000Z' }
+  state.guides.push(created)
   const saved = await saveGuide({ ...edits({ ...created, source_reference: JSON.stringify({ version: 1, topic: 't', chunkIds: [], pages: [1] }) }), pages: [], referenceNote: 'Registrar memo', intent: 'published', reviewed: false })
   assert.equal(saved.ok, true); assert.equal(created.status, 'published'); assert.equal(created.source_reference, 'Registrar memo')
-  await createManualEntry({}, form({ ...entry, title: 'Published entry', status: 'published' }))
-  assert.equal(state.guides[1].status, 'published')
+})
+test('text-source sections need no page reference; PDF sections still do', async () => {
+  for (const [mime, ok] of [['text/plain', true], ['application/pdf', false]]) {
+    const { state, saveGuide } = database({ source: { id: sourceId, title: 'Enrollment note', status: 'ready', mime_type: mime }, chunks: [] })
+    const section = { id: '22345678-1234-4234-8234-000000000098', title: 'Enrollment', status: 'draft', source_document_id: sourceId, source_reference: JSON.stringify({ version: 1, topic: 'enrollment', chunkIds: [], pages: [] }), updated_at: '2026-10-02T00:00:00.000Z' }
+    state.guides.push(section)
+    const result = await saveGuide({ ...edits(section), pages: [], intent: 'draft' })
+    assert.equal(result.ok, ok, mime)
+    if (!ok) assert.match(result.error, /page reference/)
+  }
+})
+test('a text source is organized into Draft sections like a PDF, without page references', async () => {
+  const chunks = [
+    { id: '42345678-1234-4234-8234-000000000001', chunk_index: 0, page_number: null, section_title: 'Enrollment note', content: 'This note clarifies enrollment for transferees.' },
+    { id: '42345678-1234-4234-8234-000000000002', chunk_index: 1, page_number: null, section_title: 'Late enrollment', content: 'Late enrollment requires approval from the Registrar.' },
+  ]
+  const { state, db, createDraftGuides } = database({ source: { id: sourceId, title: 'Enrollment note', status: 'ready', mime_type: 'text/plain' }, chunks })
+  const result = await createDraftGuides(db, sourceId)
+  assert.equal(result.ok, true)
+  assert.deepEqual(state.guides.map(g => g.title), ['Enrollment note', 'Late enrollment'])
+  assert(state.guides.every(g => g.status === 'draft' && g.source_document_id === sourceId))
+  assert(state.guides.every(g => topics.readGuideReference(g.source_reference).pages.length === 0))
 })
 const search = load('lib/rag/search.ts', { 'server-only': {}, '@/lib/knowledge/topics': topics, '@/lib/supabase/server': { createClient: async () => { throw Error('use the passed client') } } })
 test('retrieval cites the source title and preserved pages, or the manual entry and its note', async () => {
@@ -353,4 +371,252 @@ test('a Published section whose topic left the PDF stays live and is reported fo
   const result = await createDraftGuides(db, sourceId)
   assert.equal(result.stalePublished, 1); assert.equal(result.archivedStale, 0)
   assert.deepEqual(order(state)['Leave of Absence'], [null, 'published'])
+})
+
+// A handbook part shaped like the WUP "Admission & Academic Regulations" source.
+const handbookPages = [
+  [
+    'SECTION 1', 'Admission & Academic Regulations', 'A. Admission Requirements',
+    'The following documents must be submitted to the Registrar\'s Office upon registration:',
+    '1. Incoming Freshmen and Transfer Students', '• Birth certificate issued by the PSA', '• Two (2) original copies of Certificate of Good Moral Character',
+    '2. Foreign Students', '• Study permit from the Bureau of Immigration', 'Incoming students should consult the college of their choice.',
+    'B. Guidelines on Registration', '1. Students seeking admission shall register during the prescribed period.', '2. No student may be registered later than the registration dates.',
+  ].join('\n'),
+  [
+    '3. The duration of enrollment is for one term only.',
+    'C. Academic Regulations', 'Student Attendance and Class Standing',
+    '1. Students shall attend their classes regularly and punctually.', '2. A student who arrives late for more than 15 minutes shall be considered ABSENT.',
+    'Grading System', 'Grade Equivalent Description', '1.00 98 & above Excellent', '5.00 Below 75 Failed',
+    'Honors & Awards', 'Criteria for selection of honors:', '1. A candidate should complete 75% of the subjects.',
+  ].join('\n'),
+]
+const outlineEntries = (lines) => {
+  const at = (text) => lines.find(l => l.text === text).n
+  return [
+    { title: 'Admission & Academic Regulations', level: 0, startLine: at('SECTION 1'), heading: 'SECTION 1' },
+    { title: 'Admission Requirements', level: 1, startLine: at('A. Admission Requirements'), heading: 'A. Admission Requirements' },
+    { title: 'Incoming Freshmen and Transfer Students', level: 2, startLine: at('1. Incoming Freshmen and Transfer Students'), heading: '1. Incoming Freshmen and Transfer Students' },
+    { title: 'Foreign Students', level: 2, startLine: at('2. Foreign Students'), heading: '2. Foreign Students' },
+    { title: 'Guidelines on Registration', level: 1, startLine: at('B. Guidelines on Registration'), heading: 'B. Guidelines on Registration' },
+    { title: 'Academic Regulations', level: 1, startLine: at('C. Academic Regulations'), heading: 'C. Academic Regulations' },
+    // Off by one line: the heading is still found on the line before.
+    { title: 'Student Attendance and Class Standing', level: 2, startLine: at('Student Attendance and Class Standing') + 1, heading: 'Student Attendance and Class Standing' },
+    // An invented label is not allowed to become a title, and a heading not near its line is ignored.
+    { title: 'Steps', level: 1, startLine: at('Grading System'), heading: 'Grading System' },
+    { title: 'Foreign Students', level: 2, startLine: at('Grade Equivalent Description'), heading: '2. Foreign Students' },
+    { title: 'Honors & Awards', level: 1, startLine: at('Honors & Awards'), heading: 'Honors & Awards' },
+  ]
+}
+
+test('the AI heading outline keeps each main topic whole and never merges content across headings', () => {
+  const lines = topics.sourceLines(handbookPages, true)
+  const grouped = topics.topicsFromOutline(lines, outlineEntries(lines), [])
+  assert.deepEqual(grouped.map(t => t.title), ['Admission Requirements', 'Guidelines on Registration', 'Academic Regulations', 'Grading System', 'Honors & Awards'])
+  const [admission, registration, regulations, grading, honors] = grouped
+  // Subsections stay under their parent; the document title opens the first section.
+  assert.match(admission.content, /^SECTION 1\nAdmission & Academic Regulations\nA\. Admission Requirements/)
+  assert.match(admission.content, /1\. Incoming Freshmen[\s\S]*2\. Foreign Students[\s\S]*consult the college of their choice\.$/)
+  assert.doesNotMatch(admission.content, /register|ABSENT/)
+  // Registration continues across the page break and stops at the next heading.
+  assert.match(registration.content, /^B\. Guidelines on Registration[\s\S]*3\. The duration of enrollment is for one term only\.$/)
+  assert.deepEqual(registration.pages, [1, 2])
+  assert.match(regulations.content, /^C\. Academic Regulations\nStudent Attendance and Class Standing[\s\S]*ABSENT\.$/)
+  // Tables stay whole inside their own section.
+  assert.match(grading.content, /1\.00 98 & above Excellent\n5\.00 Below 75 Failed$/)
+  assert.doesNotMatch(honors.content, /Excellent/)
+  // Numbered policy rules are not turned into invented "Steps".
+  assert(grouped.every(t => t.steps.length === 0))
+  // Verbatim: every line of the source is in exactly one section.
+  assert.equal(grouped.map(t => t.content).join('\n'), lines.map(l => l.text).join('\n'))
+})
+
+test('a main topic too large for one section splits into its subsections, which keep it as their parent', () => {
+  const rules = Array.from({ length: 60 }, (_, i) => `${i + 1}. A student shall follow attendance rule number ${i + 1} of the University.`)
+  const lines = topics.sourceLines([['C. Academic Regulations', 'Student Attendance and Class Standing', ...rules, 'Change of Subjects', 'Adding subjects is allowed within two weeks.'].join('\n')], true)
+  const grouped = topics.topicsFromOutline(lines, [
+    { title: 'Academic Regulations', level: 1, startLine: 1, heading: 'C. Academic Regulations' },
+    { title: 'Student Attendance and Class Standing', level: 2, startLine: 2, heading: 'Student Attendance and Class Standing' },
+    { title: 'Change of Subjects', level: 2, startLine: lines.length - 1, heading: 'Change of Subjects' },
+  ], [])
+  assert.deepEqual(grouped.map(t => [t.title, t.parent]), [['Student Attendance and Class Standing', 'Academic Regulations'], ['Change of Subjects', 'Academic Regulations']])
+  assert.match(grouped[0].content, /^C\. Academic Regulations\nStudent Attendance and Class Standing\n1\. /)
+  assert.match(grouped[0].description, /^Under “Academic Regulations”\./)
+  assert.doesNotMatch(grouped[1].content, /attendance rule/)
+})
+
+test('labelled procedures still become steps, and chunk overlap is not duplicated', () => {
+  const lines = topics.sourceLines(['Transfer', 'Procedure:', '1. Submit a written request.', '2. Settle financial obligations.'], false)
+  const [transfer] = topics.topicsFromOutline(lines, [{ title: 'Transfer', level: 1, startLine: 1, heading: 'Transfer' }], [])
+  assert.deepEqual(transfer.steps.map(s => s.title), ['Submit a written request.', 'Settle financial obligations.'])
+  assert.deepEqual(transfer.pages, [])
+  assert.equal(topics.joinChunks(['First rule. The overlap sentence is here.', 'The overlap sentence is here. Next rule.']), 'First rule. The overlap sentence is here.\n\nNext rule.')
+})
+
+test('re-analysis refreshes unedited AI drafts in place and never changes edited or Published sections', async () => {
+  const lines = topics.sourceLines(handbookPages, true)
+  const { state, db, createDraftGuides } = database()
+  // First analysis: the old heading-based grouping.
+  await createDraftGuides(db, sourceId)
+  const first = await createDraftGuides(db, sourceId, { lines, entries: outlineEntries(lines) })
+  assert.equal(first.outlined, true)
+  // The old topics are not in the new outline: unedited drafts are archived, not duplicated.
+  assert.equal(first.archivedStale, 3)
+  const admission = state.guides.find(g => g.title === 'Admission Requirements')
+  const registration = state.guides.find(g => g.title === 'Guidelines on Registration')
+  admission.content = 'Admin-edited admission text.'
+  registration.status = 'published'
+  // The source changed: the last section on each page gains a line.
+  const changed = topics.sourceLines(handbookPages.map(p => `${p}\nUpdated line.`), true)
+  const result = await createDraftGuides(db, sourceId, { lines: changed, entries: outlineEntries(changed) })
+  assert.equal(result.ok, true); assert.equal(result.created, 0)
+  assert.equal(admission.content, 'Admin-edited admission text.', 'edited drafts are kept')
+  assert.doesNotMatch(registration.content, /Updated line/, 'Published sections are kept')
+  const honors = state.guides.find(g => g.title === 'Honors & Awards')
+  assert.match(honors.content, /Updated line\.$/, 'unedited drafts are refreshed')
+  assert.equal(result.refreshed, 1)
+  assert.equal(state.guides.filter(g => g.title === 'Honors & Awards').length, 1, 'refreshed, not duplicated')
+})
+
+test('chunk headings include lettered headings but not table rows', () => {
+  const chunk = load('lib/rag/chunk.ts')
+  const chunks = chunk.chunkPages([handbookPages.join('\n')])
+  const titles = [...new Set(chunks.map(c => c.sectionTitle))]
+  assert(titles.includes('B. Guidelines on Registration'))
+  assert(!titles.some(t => /Below 75/.test(t ?? '')))
+})
+
+test('a long topic whose subsections are short items (a timeline) stays one section', () => {
+  const years = Array.from({ length: 50 }, (_, i) => [`${1946 + i}`, `In ${1946 + i} the University opened a new building and expanded its programs for students of the region.`]).flat()
+  const lines = topics.sourceLines([['History of the University', ...years].join('\n')], true)
+  const entries = [{ title: 'History of the University', level: 1, startLine: 1, heading: 'History of the University' },
+    ...lines.filter(l => /^\d{4}$/.test(l.text)).map(l => ({ title: l.text, level: 2, startLine: l.n, heading: l.text }))]
+  const grouped = topics.topicsFromOutline(lines, entries, [])
+  assert.deepEqual(grouped.map(t => t.title), ['History of the University'])
+  assert(grouped[0].content.length > 4000)
+})
+
+// Positioned text of the "Request for Academic Records" table, in the PDF's own item order
+// (cell by cell; wrapped cells continue at the same x on lower lines).
+const item = (str, x, y, hasEOL = false) => ({ str, x, y, width: str.length * 5.5, hasEOL })
+const recordsLayout = [
+  item('Request for Academic Records', 72, 425, true),
+  item('The requirements, fees, and processing periods for requested documents are as follows:', 72, 401, true),
+  item('Document', 77, 376), item('Requirements', 194, 376), item('Fees', 311, 376), item('Processing days', 428, 376), item('', 77, 358, true),
+  item('Print-out of Grades', 77, 358), item('Clearance / Official', 194, 358, true), item('Receipt', 194, 343), item('₱', 311, 358), item('35.00', 318, 358), item('1', 428, 358), item('', 77, 325, true),
+  item('Transcript of', 77, 261, true), item('Records', 77, 247), item('', 194, 261, true), item('Clearance / Official', 194, 261, true), item('Receipt', 194, 247),
+  item('₱', 311, 261), item('150.00 for first two', 318, 261), item('', 311, 247, true), item('sheets; ₱35.00 for', 311, 247, true), item('every additional', 311, 233, true), item('sheet', 311, 219),
+  item('7 (Tertiary Level)', 428, 261), item('', 77, 200, true),
+  item('Diploma', 77, 200), item('Clearance', 194, 200), item('₱', 311, 200), item('350.00', 318, 200), item('1', 428, 200, true),
+  item('Express or courier services are available on request for additional charge.', 72, 170, true),
+]
+const recordsRows = [
+  ['Document', 'Requirements', 'Fees', 'Processing days'],
+  ['Print-out of Grades', 'Clearance / Official Receipt', '₱35.00', '1'],
+  ['Transcript of Records', 'Clearance / Official Receipt', '₱150.00 for first two sheets; ₱35.00 for every additional sheet', '7 (Tertiary Level)'],
+  ['Diploma', 'Clearance', '₱350.00', '1'],
+]
+
+test('a table is rebuilt only when every cell is exactly the source text at its column and row', () => {
+  const lines = topics.sourceLines([], true, [recordsLayout])
+  const header = lines.find(l => l.text.startsWith('Document')).n
+  const last = lines.find(l => l.text.startsWith('Diploma')).n
+  const table = { startLine: header, endLine: last, rows: recordsRows, confident: true }
+  const markdown = tables.verifyTable(lines, table)
+  assert.equal(markdown, [
+    '| Document | Requirements | Fees | Processing days |', '| --- | --- | --- | --- |',
+    '| Print-out of Grades | Clearance / Official Receipt | ₱35.00 | 1 |',
+    '| Transcript of Records | Clearance / Official Receipt | ₱150.00 for first two sheets; ₱35.00 for every additional sheet | 7 (Tertiary Level) |',
+    '| Diploma | Clearance | ₱350.00 | 1 |',
+  ].join('\n'))
+  const swap = (rows, r, a, b) => rows.map((row, i) => i === r ? row.map((c, j) => j === a ? row[b] : j === b ? row[a] : c) : row)
+  // A value in the wrong column, an invented value, a dropped value, a value in the wrong row, or an unsure model: kept as text.
+  assert.equal(tables.verifyTable(lines, { ...table, rows: swap(recordsRows, 3, 2, 3) }), null)
+  assert.equal(tables.verifyTable(lines, { ...table, rows: recordsRows.map((r, i) => i === 3 ? [...r.slice(0, 3), '2'] : r) }), null)
+  assert.equal(tables.verifyTable(lines, { ...table, rows: recordsRows.slice(0, 3) }), null)
+  assert.equal(tables.verifyTable(lines, { ...table, rows: recordsRows.map((r, i) => i === 1 ? [r[0], 'Clearance / Official', r[2], r[3]] : i === 2 ? [r[0], 'Receipt Clearance / Official Receipt', r[2], r[3]] : r) }), null)
+  assert.equal(tables.verifyTable(lines, { ...table, confident: false }), null)
+})
+
+test('verified tables replace their source lines in the section; others stay as text and flag review', () => {
+  const lines = topics.sourceLines([], true, [recordsLayout])
+  const header = lines.find(l => l.text.startsWith('Document')).n
+  const last = lines.find(l => l.text.startsWith('Diploma')).n
+  const entries = [{ title: 'Request for Academic Records', level: 1, startLine: 1, heading: 'Request for Academic Records' }]
+  const [good] = topics.topicsFromOutline(lines, entries, [], [{ startLine: header, endLine: last, rows: recordsRows, confident: true }])
+  assert.match(good.content, /^Request for Academic Records\nThe requirements[^\n]*\n\| Document \| Requirements \| Fees \| Processing days \|\n/)
+  assert.match(good.content, /\| Diploma \| Clearance \| ₱350\.00 \| 1 \|\nExpress or courier services are available on request for additional charge\.$/)
+  assert.equal(good.tableReview, undefined)
+  assert.equal(topics.topicReference(good).tableReview, undefined)
+  const [unsure] = topics.topicsFromOutline(lines, entries, [], [{ startLine: header, endLine: last, rows: recordsRows, confident: false }])
+  assert.equal(unsure.content, lines.map(l => l.text).join('\n'), 'source text kept as extracted')
+  assert.equal(unsure.tableReview, true)
+  assert.equal(topics.topicReference(unsure).tableReview, true)
+})
+
+test('section text splits into paragraphs and Markdown tables for rendering', () => {
+  const text = ['Intro line', 'Second line', String.raw`| A | B \| C |`, '| --- | --- |', '| 1 | |', 'After the table.', '| not | a table |'].join('\n')
+  const blocks = tables.textBlocks(text)
+  assert.deepEqual(blocks, [
+    { kind: 'text', text: 'Intro line\nSecond line' },
+    { kind: 'table', header: ['A', 'B | C'], rows: [['1', '']] },
+    { kind: 'text', text: 'After the table.\n| not | a table |' },
+  ])
+})
+
+test('a table that continues on the next page is still verified in reading order', () => {
+  const page4 = [item('Grade', 77, 172), item('Equivalent', 145, 172), item('Description', 216, 172, true), item('1.00', 77, 154), item('99', 145, 154), item('–', 159, 154), item('100', 165, 154), item('Excellent', 216, 154, true)]
+  const page5 = [item('1.50', 77, 706), item('90', 145, 706), item('Satisfactory', 216, 706, true)]
+  const lines = topics.sourceLines([], true, [page4, page5])
+  const rows = [['Grade', 'Equivalent', 'Description'], ['1.00', '99–100', 'Excellent'], ['1.50', '90', 'Satisfactory']]
+  assert.match(tables.verifyTable(lines, { startLine: 1, endLine: 3, rows, confident: true }), /\| 1\.50 \| 90 \| Satisfactory \|$/)
+  assert.equal(tables.verifyTable(lines, { startLine: 1, endLine: 3, rows: [rows[0], rows[2], rows[1]], confident: true }), null, 'rows out of order')
+})
+
+// A section without the fields a reorder may change.
+const withoutOrder = (guide) => Object.fromEntries(Object.entries(guide).filter(([key]) => key !== 'sort_order' && key !== 'updated_at'))
+const byOrder = (state) => [...state.guides].sort((a, b) => a.sort_order - b.sort_order).map(g => g.title)
+
+test('drag-and-drop order is saved without touching content, pages or status', async () => {
+  const { state, db, createDraftGuides, reorderSourceSections } = database()
+  await createDraftGuides(db, sourceId)
+  assert.deepEqual(byOrder(state), ['Graduation Honors', 'Transfer', 'Leave of Absence'], 'first analysis follows the PDF')
+  state.guides[1].status = 'published'
+  const before = structuredClone(state.guides.map(withoutOrder))
+  const reversed = [...state.guides].reverse().map(g => g.id)
+  assert.deepEqual(await reorderSourceSections({ documentId: sourceId, ids: reversed }), { ok: true })
+  assert.deepEqual(byOrder(state), ['Leave of Absence', 'Transfer', 'Graduation Honors'])
+  assert.deepEqual(state.guides.map(withoutOrder), before)
+  // Incomplete, duplicated or foreign lists are refused.
+  for (const ids of [reversed.slice(1), [reversed[0], ...reversed.slice(0, 2)], [...reversed.slice(1), '62345678-1234-4234-8234-123456789abc']]) {
+    assert.equal((await reorderSourceSections({ documentId: sourceId, ids })).ok, false)
+  }
+  assert.deepEqual(byOrder(state), ['Leave of Absence', 'Transfer', 'Graduation Honors'])
+})
+
+test('re-analysis keeps the admin order and places a new draft by the document structure', async () => {
+  const { state, db, createDraftGuides, reorderSourceSections } = database()
+  await createDraftGuides(db, sourceId)
+  const id = (title) => state.guides.find(g => g.title === title).id
+  await reorderSourceSections({ documentId: sourceId, ids: [id('Leave of Absence'), id('Graduation Honors'), id('Transfer')] })
+  // The updated PDF has a new topic between Graduation Honors and Transfer.
+  const shifting = { id: '12345678-1234-4234-8234-123456789ab9', chunk_index: 2, page_number: 3, section_title: 'Shifting', content: 'Shifting Students may shift programs once.', document_id: sourceId, metadata: {} }
+  state.chunks = [state.chunks[0], state.chunks[1], shifting, { ...state.chunks[2], chunk_index: 3 }, { ...state.chunks[3], chunk_index: 4 }]
+  const result = await createDraftGuides(db, sourceId)
+  assert.equal(result.created, 1)
+  assert.deepEqual(byOrder(state), ['Leave of Absence', 'Graduation Honors', 'Shifting', 'Transfer'])
+})
+
+test('re-analysis archives only unedited AI drafts whose topic left the PDF; edited drafts are kept', async () => {
+  const { state, db, createDraftGuides } = database()
+  await createDraftGuides(db, sourceId)
+  const leave = state.guides.find(g => g.title === 'Leave of Absence')
+  const transfer = state.guides.find(g => g.title === 'Transfer')
+  // An admin edits the Transfer draft (saving drops the analysis fingerprint).
+  Object.assign(transfer, { content: 'Admin-reviewed transfer text.', source_reference: JSON.stringify({ ...topics.readGuideReference(transfer.source_reference), contentHash: undefined }) })
+  // The updated PDF no longer has Transfer or Leave of Absence.
+  state.chunks = state.chunks.slice(0, 2)
+  const result = await createDraftGuides(db, sourceId)
+  assert.equal(result.archivedStale, 1); assert.equal(result.staleEdited, 1)
+  assert.equal(leave.status, 'archived')
+  assert.equal(transfer.status, 'draft'); assert.equal(transfer.content, 'Admin-reviewed transfer text.')
 })

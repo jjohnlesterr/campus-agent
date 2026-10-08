@@ -17,7 +17,9 @@ function load(relative, mocks = {}) {
   return loaded.exports
 }
 
-const topics = load('lib/knowledge/topics.ts')
+const tables = load('lib/knowledge/tables.ts')
+const topics = load('lib/knowledge/topics.ts', { '@/lib/knowledge/tables': tables })
+const sources = load('lib/sources.ts')
 const { toSourceSections, parsePageList, formatPageList } = load('lib/knowledge/sections.ts', { '@/lib/knowledge/topics': topics })
 
 const ref = (pages) => JSON.stringify({ version: 1, topic: 't', chunkIds: [], pages })
@@ -84,7 +86,7 @@ const SECTION_ID = '11111111-1111-4111-8111-111111111111'
 const SOURCE_ID = '22222222-2222-4222-8222-222222222222'
 const UPDATED_AT = '2026-10-08T01:00:00.000Z'
 
-function database({ pageCount = 12, stale = false } = {}) {
+function database({ pageCount = 12, stale = false, siblings = [] } = {}) {
   const state = { updates: [], inserts: [] }
   const db = {
     from: (table) => {
@@ -96,6 +98,8 @@ function database({ pageCount = 12, stale = false } = {}) {
         insert: (v) => { state.inserts.push({ table, payload: v }); return Promise.resolve({ error: null }) },
         upsert: () => Promise.resolve({ error: null }),
         eq: (col, val) => ((filters[col] = val), q),
+        // Awaiting a list query: the source's sections.
+        then: (resolve) => resolve({ data: op === 'select' && table === 'guidelines' ? siblings : null, error: null }),
         async single() { return this.maybeSingle() },
         async maybeSingle() {
           if (table === 'document_chunks') return { data: { metadata: { page_count: pageCount } }, error: null }
@@ -114,6 +118,7 @@ function database({ pageCount = 12, stale = false } = {}) {
     '@/lib/auth': { requireAdmin: async () => {} },
     '@/lib/supabase/server': { createClient: async () => db },
     '@/lib/knowledge/topics': topics,
+    '@/lib/sources': sources,
   })
   return { state, ...actions }
 }
@@ -145,4 +150,20 @@ test('a section added by an admin starts as Draft and keeps its page reference',
   assert.equal(payload.status, 'draft')
   assert.equal(payload.source_document_id, SOURCE_ID)
   assert.deepEqual(JSON.parse(payload.source_reference).pages, [3])
+})
+
+test('sections follow the admin order first, then the PDF order', () => {
+  const sections = toSourceSections([
+    record({ id: 'pdf-first', source_order: 1, sort_order: 2 }),
+    record({ id: 'manual', source_order: null, sort_order: 1 }),
+    record({ id: 'pdf-second', source_order: 2, sort_order: 3 }),
+    record({ id: 'unplaced', source_order: 3, sort_order: null }),
+  ])
+  assert.deepEqual(sections.map((s) => s.id), ['manual', 'pdf-first', 'pdf-second', 'unplaced'])
+})
+
+test('a section added by an admin goes to the end of the list', async () => {
+  const { state, addSourceSection } = database({ siblings: [{ sort_order: 1 }, { sort_order: 3 }, { sort_order: 2 }] })
+  await addSourceSection({ documentId: SOURCE_ID, title: 'Library Hours', content: 'Opens at 7:30 AM.', pages: [3] })
+  assert.equal(state.inserts[0].payload.sort_order, 4)
 })

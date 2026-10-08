@@ -43,7 +43,7 @@ function links(account) {
 }
 
 test('on phones the signed-in button uses a short label so the header fits at 360px', () => {
-  const html = renderToStaticMarkup(h(LandingNav, { account: { homeHref: '/app', profileHref: '/app/profile' } }))
+  const html = renderToStaticMarkup(h(LandingNav, { account: { homeHref: '/app' } }))
   assert.match(html, /<span class="sm:hidden">Open app<\/span><span class="hidden sm:inline">Open Campus Agent<\/span>/)
 })
 
@@ -55,7 +55,7 @@ test('guests see Sign in and Create account', () => {
 })
 
 test('public links are How It Works, Sources and About, all sections of the landing page', () => {
-  for (const account of [null, { homeHref: '/app', profileHref: '/app/profile' }]) {
+  for (const account of [null, { homeHref: '/app' }]) {
     const all = links(account)
     for (const l of ['How It Works → /#how-it-works', 'Sources → /#sources', 'About → /#about']) assert.ok(all.includes(l), l)
     assert.ok(!all.some((l) => l.startsWith('Campus Map')))
@@ -65,20 +65,20 @@ test('public links are How It Works, Sources and About, all sections of the land
 })
 
 test('signed-in users see Open Campus Agent instead of the sign-in actions', () => {
-  const user = links({ homeHref: '/app', profileHref: '/app/profile' })
+  const user = links({ homeHref: '/app' })
   assert.ok(user.includes('Open Campus Agent → /app'))
-  assert.ok(user.includes('Profile → /app/profile'))
+  assert.ok(!user.some((l) => /profile/i.test(l)))
   assert.ok(!user.some((l) => l.startsWith('Sign in') || l.startsWith('Create account')))
 })
 
-test('a signed-in admin opens /admin, with no profile link', () => {
-  const admin = links({ homeHref: '/admin', profileHref: null })
+test('a signed-in admin opens /admin', () => {
+  const admin = links({ homeHref: '/admin' })
   assert.ok(admin.includes('Open Campus Agent → /admin'))
   assert.ok(!admin.some((l) => l.startsWith('Profile') || l.startsWith('Sign in') || l.startsWith('Create account')))
 })
 
 test('no admin sign-up or admin login option is exposed', () => {
-  for (const account of [null, { homeHref: '/app', profileHref: '/app/profile' }]) {
+  for (const account of [null, { homeHref: '/app' }]) {
     assert.ok(!links(account).some((l) => /admin/i.test(l.split(' → ')[0])))
   }
 })
