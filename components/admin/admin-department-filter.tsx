@@ -18,7 +18,7 @@ export function AdminDepartmentFilter({
   value: string
   departments: { code: string; name: string }[]
   allLabel?: string
-  /** Events/Announcements can be university-wide; students always belong to a department. */
+  /** Offers a "University-wide" option (unused by Users: every user belongs to a department). */
   showUniversity?: boolean
 }) {
   const router = useRouter()

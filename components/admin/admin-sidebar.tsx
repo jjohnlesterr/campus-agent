@@ -1,6 +1,6 @@
 "use client"
 
-import { CalendarDays, LayoutDashboard, Library, LogOut, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
+import { LayoutDashboard, Library, LogOut, Map as MapIcon, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "cn"
@@ -16,17 +16,17 @@ const NAV_GROUPS: { id: string; label: string; items: NavItem[] }[] = [
     id: "content",
     label: "Content",
     items: [
-      // Source details live under /admin/documents/[id]; the campus map legend (/admin/locations)
-      // is opened from the Campus Map source, so both keep this item active.
-      { href: "/admin/knowledge", label: "Knowledge Library", icon: Library, also: ["/admin/documents", "/admin/locations"] },
+      // Source details live under /admin/documents/[id], so they keep this item active.
+      { href: "/admin/knowledge", label: "Knowledge Library", icon: Library, also: ["/admin/documents"] },
     ],
   },
   {
     id: "campus",
     label: "Campus Information",
     items: [
-      { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+      // The old /admin/locations URL redirects here.
+      { href: "/admin/campus-map", label: "Campus Map", icon: MapIcon, also: ["/admin/locations"] },
     ],
   },
   {
