@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
 import { createCollection, deleteCollection, moveToCollection, updateCollection } from "@/app/admin/knowledge/collections/actions"
+import { EditSourceDetailsDialog } from "@/components/admin/source-details-dialog"
 import { Field, selectClass, textareaClass } from "@/components/shared/form-field"
+import { useToast } from "@/components/shared/toast"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -230,8 +232,9 @@ export function MoveToCollectionDialog({ open, onOpenChange, kind, id, title, cu
 }
 
 /** Overflow menu on a Knowledge Library card (sits above the card's full-size link). */
-export function LibraryCardMenu(props: MoveProps) {
-  const [open, setOpen] = useState(false)
+export function LibraryCardMenu({ description, ...props }: MoveProps & { description: string | null }) {
+  const [open, setOpen] = useState<"move" | "details" | null>(null)
+  const { toast, showToast } = useToast()
   return (
     <>
       <DropdownMenu>
@@ -239,13 +242,28 @@ export function LibraryCardMenu(props: MoveProps) {
           <MoreHorizontal aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-auto min-w-44">
-          <DropdownMenuItem onClick={() => setOpen(true)}>
+          {props.kind === "source" && (
+            <DropdownMenuItem onClick={() => setOpen("details")}>
+              <Pencil aria-hidden="true" />
+              Edit details
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => setOpen("move")}>
             <FolderInput aria-hidden="true" />
             Move to collection
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <MoveToCollectionDialog {...props} open={open} onOpenChange={setOpen} />
+      <MoveToCollectionDialog {...props} open={open === "move"} onOpenChange={(next) => setOpen(next ? "move" : null)} />
+      {props.kind === "source" && (
+        <EditSourceDetailsDialog
+          source={{ id: props.id, title: props.title, description }}
+          open={open === "details"}
+          onOpenChange={(next) => setOpen(next ? "details" : null)}
+          onSaved={() => showToast("Source details updated.")}
+        />
+      )}
+      {toast}
     </>
   )
 }

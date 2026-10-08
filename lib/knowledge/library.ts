@@ -23,9 +23,13 @@ export type LibrarySource = {
   status: string
   mimeType: string
   documentType: string
+  /** Admin-written description (metadata only, never used in answers). */
+  description: string | null
   summary: string | null
   keyTopics: string[]
   updatedAt: string
+  /** Card position in its collection (drag and drop); null until placed. */
+  sortOrder: number | null
   counts: { total: number; published: number; draft: number; archived: number }
 }
 
@@ -43,7 +47,7 @@ export type LibraryItem = LibrarySource | LibraryEntry
 
 /** Section counts per source, and the newest change across a source and its sections. */
 export function buildSources(
-  documents: { id: string; title: string; status: string; mime_type: string; document_type: string; summary: string | null; key_topics: string[]; updated_at: string }[],
+  documents: { id: string; title: string; status: string; mime_type: string; document_type: string; description: string | null; summary: string | null; key_topics: string[]; updated_at: string; sort_order?: number | null }[],
   sections: { source_document_id: string | null; status: SectionStatus; updated_at: string }[]
 ): LibrarySource[] {
   return documents.map((doc) => {
@@ -57,9 +61,11 @@ export function buildSources(
       status: doc.status,
       mimeType: doc.mime_type,
       documentType: doc.document_type,
+      description: doc.description,
       summary: doc.summary,
       keyTopics: doc.key_topics,
       updatedAt,
+      sortOrder: doc.sort_order ?? null,
       counts: { total: own.length, published: count("published"), draft: count("draft"), archived: count("archived") },
     }
   })
@@ -81,13 +87,22 @@ export function matchesTab(item: LibraryItem, tab: LibraryTab) {
 export function matchesSearch(item: LibraryItem, query: string) {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  const fields = item.kind === "source" ? [item.title, item.summary, ...item.keyTopics] : [item.title, item.category, item.description]
+  const fields = item.kind === "source" ? [item.title, item.description, item.summary, ...item.keyTopics] : [item.title, item.category, item.description]
   return fields.some((field) => field?.toLowerCase().includes(q))
 }
 
-/** Newest first, so recent uploads and edits are on top. */
+/**
+ * Sources in the admin's order (drag and drop; unplaced ones after, newest first), then
+ * older manual entries, newest first.
+ */
 export function filterLibrary(items: LibraryItem[], tab: LibraryTab, query: string) {
-  return items
-    .filter((item) => matchesTab(item, tab) && matchesSearch(item, query))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  return orderLibrary(items.filter((item) => matchesTab(item, tab) && matchesSearch(item, query)))
+}
+
+export function orderLibrary(items: LibraryItem[]) {
+  const position = (item: LibraryItem) => (item.kind === "source" ? item.sortOrder ?? Infinity : Infinity)
+  return [...items].sort((a, b) =>
+    Number(a.kind === "manual") - Number(b.kind === "manual") ||
+    position(a) - position(b) ||
+    b.updatedAt.localeCompare(a.updatedAt))
 }
