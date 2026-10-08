@@ -16,7 +16,7 @@ export type Database = {
     Tables: {
       announcements: {
         Row: {
-          category: Database["public"]["Enums"]["announcement_category"]
+          category: string | null
           content: string
           created_at: string
           department_id: string | null
@@ -24,13 +24,14 @@ export type Database = {
           id: string
           publish_at: string
           source: string | null
+          source_url: string | null
           status: Database["public"]["Enums"]["publish_status"]
           title: string
           updated_at: string
           visibility: Database["public"]["Enums"]["content_visibility"]
         }
         Insert: {
-          category?: Database["public"]["Enums"]["announcement_category"]
+          category?: string | null
           content: string
           created_at?: string
           department_id?: string | null
@@ -38,13 +39,14 @@ export type Database = {
           id?: string
           publish_at?: string
           source?: string | null
+          source_url?: string | null
           status?: Database["public"]["Enums"]["publish_status"]
           title: string
           updated_at?: string
           visibility?: Database["public"]["Enums"]["content_visibility"]
         }
         Update: {
-          category?: Database["public"]["Enums"]["announcement_category"]
+          category?: string | null
           content?: string
           created_at?: string
           department_id?: string | null
@@ -52,6 +54,7 @@ export type Database = {
           id?: string
           publish_at?: string
           source?: string | null
+          source_url?: string | null
           status?: Database["public"]["Enums"]["publish_status"]
           title?: string
           updated_at?: string
@@ -67,9 +70,41 @@ export type Database = {
           },
         ]
       }
+      campus_buildings: {
+        Row: {
+          building_number: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          building_number: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          building_number?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campus_locations: {
         Row: {
           aliases: string[]
+          area: string | null
+          building_id: string | null
           building_name: string | null
           building_number: number | null
           created_at: string
@@ -77,6 +112,8 @@ export type Database = {
           floor: string | null
           id: string
           image_path: string | null
+          is_active: boolean
+          location_type: string
           map_x: number | null
           map_y: number | null
           name: string
@@ -84,6 +121,8 @@ export type Database = {
         }
         Insert: {
           aliases?: string[]
+          area?: string | null
+          building_id?: string | null
           building_name?: string | null
           building_number?: number | null
           created_at?: string
@@ -91,6 +130,8 @@ export type Database = {
           floor?: string | null
           id?: string
           image_path?: string | null
+          is_active?: boolean
+          location_type?: string
           map_x?: number | null
           map_y?: number | null
           name: string
@@ -98,6 +139,8 @@ export type Database = {
         }
         Update: {
           aliases?: string[]
+          area?: string | null
+          building_id?: string | null
           building_name?: string | null
           building_number?: number | null
           created_at?: string
@@ -105,9 +148,49 @@ export type Database = {
           floor?: string | null
           id?: string
           image_path?: string | null
+          is_active?: boolean
+          location_type?: string
           map_x?: number | null
           map_y?: number | null
           name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campus_locations_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "campus_buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campus_map_legend: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
@@ -215,6 +298,7 @@ export type Database = {
       documents: {
         Row: {
           analyzed_at: string | null
+          collection_id: string | null
           created_at: string
           document_type: Database["public"]["Enums"]["document_type"]
           effective_date: string | null
@@ -234,6 +318,7 @@ export type Database = {
         }
         Insert: {
           analyzed_at?: string | null
+          collection_id?: string | null
           created_at?: string
           document_type?: Database["public"]["Enums"]["document_type"]
           effective_date?: string | null
@@ -253,6 +338,7 @@ export type Database = {
         }
         Update: {
           analyzed_at?: string | null
+          collection_id?: string | null
           created_at?: string
           document_type?: Database["public"]["Enums"]["document_type"]
           effective_date?: string | null
@@ -271,6 +357,13 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["content_visibility"]
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_collections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_uploaded_by_fkey"
             columns: ["uploaded_by"]
@@ -404,6 +497,7 @@ export type Database = {
       guidelines: {
         Row: {
           category_id: string
+          collection_id: string | null
           content: string | null
           created_at: string
           description: string | null
@@ -415,6 +509,7 @@ export type Database = {
           search_vector: unknown
           slug: string
           source_document_id: string | null
+          source_order: number | null
           source_reference: string | null
           status: Database["public"]["Enums"]["publish_status"]
           title: string
@@ -423,6 +518,7 @@ export type Database = {
         }
         Insert: {
           category_id: string
+          collection_id?: string | null
           content?: string | null
           created_at?: string
           description?: string | null
@@ -434,6 +530,7 @@ export type Database = {
           search_vector?: unknown
           slug: string
           source_document_id?: string | null
+          source_order?: number | null
           source_reference?: string | null
           status?: Database["public"]["Enums"]["publish_status"]
           title: string
@@ -442,6 +539,7 @@ export type Database = {
         }
         Update: {
           category_id?: string
+          collection_id?: string | null
           content?: string | null
           created_at?: string
           description?: string | null
@@ -453,6 +551,7 @@ export type Database = {
           search_vector?: unknown
           slug?: string
           source_document_id?: string | null
+          source_order?: number | null
           source_reference?: string | null
           status?: Database["public"]["Enums"]["publish_status"]
           title?: string
@@ -468,6 +567,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "guidelines_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_collections"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guidelines_responsible_office_id_fkey"
             columns: ["responsible_office_id"]
             isOneToOne: false
@@ -478,6 +584,177 @@ export type Database = {
             foreignKeyName: "guidelines_source_document_id_fkey"
             columns: ["source_document_id"]
             isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          heading: string | null
+          id: string
+          note_id: string
+          note_title: string
+          pages: number[]
+          search_vector: unknown
+          source_document_id: string | null
+          visibility: Database["public"]["Enums"]["content_visibility"]
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          heading?: string | null
+          id?: string
+          note_id: string
+          note_title: string
+          pages?: number[]
+          search_vector?: unknown
+          source_document_id?: string | null
+          visibility: Database["public"]["Enums"]["content_visibility"]
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          heading?: string | null
+          id?: string
+          note_id?: string
+          note_title?: string
+          pages?: number[]
+          search_vector?: unknown
+          source_document_id?: string | null
+          visibility?: Database["public"]["Enums"]["content_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_collections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_collections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_notes: {
+        Row: {
+          ai_proposal: string | null
+          ai_proposal_at: string | null
+          created_at: string
+          created_by: string | null
+          draft_content: string
+          draft_origin: Database["public"]["Enums"]["knowledge_note_origin"]
+          draft_updated_at: string
+          id: string
+          published_at: string | null
+          published_by: string | null
+          published_content: string | null
+          source_document_id: string | null
+          status: Database["public"]["Enums"]["publish_status"]
+          title: string
+          updated_at: string
+          visibility: Database["public"]["Enums"]["content_visibility"]
+        }
+        Insert: {
+          ai_proposal?: string | null
+          ai_proposal_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content?: string
+          draft_origin?: Database["public"]["Enums"]["knowledge_note_origin"]
+          draft_updated_at?: string
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          published_content?: string | null
+          source_document_id?: string | null
+          status?: Database["public"]["Enums"]["publish_status"]
+          title: string
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["content_visibility"]
+        }
+        Update: {
+          ai_proposal?: string | null
+          ai_proposal_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content?: string
+          draft_origin?: Database["public"]["Enums"]["knowledge_note_origin"]
+          draft_updated_at?: string
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          published_content?: string | null
+          source_document_id?: string | null
+          status?: Database["public"]["Enums"]["publish_status"]
+          title?: string
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["content_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_notes_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_notes_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: true
             referencedRelation: "documents"
             referencedColumns: ["id"]
           },
@@ -579,12 +856,15 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          intended_department_id: string | null
+          intended_program_id: string | null
           must_change_password: boolean
           onboarded_at: string | null
           program_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           student_id: string | null
           updated_at: string
+          user_type: Database["public"]["Enums"]["user_type"] | null
           year_level: number | null
         }
         Insert: {
@@ -594,12 +874,15 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          intended_department_id?: string | null
+          intended_program_id?: string | null
           must_change_password?: boolean
           onboarded_at?: string | null
           program_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           student_id?: string | null
           updated_at?: string
+          user_type?: Database["public"]["Enums"]["user_type"] | null
           year_level?: number | null
         }
         Update: {
@@ -609,12 +892,15 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          intended_department_id?: string | null
+          intended_program_id?: string | null
           must_change_password?: boolean
           onboarded_at?: string | null
           program_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           student_id?: string | null
           updated_at?: string
+          user_type?: Database["public"]["Enums"]["user_type"] | null
           year_level?: number | null
         }
         Relationships: [
@@ -623,6 +909,20 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_intended_department_id_fkey"
+            columns: ["intended_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_intended_program_id_fkey"
+            columns: ["intended_program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
           {
@@ -672,6 +972,10 @@ export type Database = {
       system_settings: {
         Row: {
           assistant_name: string
+          campus_map_mime_type: string | null
+          campus_map_path: string | null
+          campus_map_updated_at: string | null
+          campus_map_updated_by: string | null
           id: boolean
           logo_path: string | null
           primary_brand_color: string | null
@@ -682,6 +986,10 @@ export type Database = {
         }
         Insert: {
           assistant_name?: string
+          campus_map_mime_type?: string | null
+          campus_map_path?: string | null
+          campus_map_updated_at?: string | null
+          campus_map_updated_by?: string | null
           id?: boolean
           logo_path?: string | null
           primary_brand_color?: string | null
@@ -692,6 +1000,10 @@ export type Database = {
         }
         Update: {
           assistant_name?: string
+          campus_map_mime_type?: string | null
+          campus_map_path?: string | null
+          campus_map_updated_at?: string | null
+          campus_map_updated_by?: string | null
           id?: boolean
           logo_path?: string | null
           primary_brand_color?: string | null
@@ -700,7 +1012,15 @@ export type Database = {
           university_short_name?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_campus_map_updated_by_fkey"
+            columns: ["campus_map_updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -718,6 +1038,17 @@ export type Database = {
           source_title: string
           title: string
         }[]
+      }
+      publish_knowledge_note: {
+        Args: { p_chunks: Json; p_expected_draft_at: string; p_note_id: string }
+        Returns: undefined
+      }
+      set_knowledge_note_status: {
+        Args: {
+          p_note_id: string
+          p_status: Database["public"]["Enums"]["publish_status"]
+        }
+        Returns: undefined
       }
       search_document_chunks: {
         Args: { match_count?: number; query_text: string }
@@ -780,8 +1111,14 @@ export type Database = {
         | "announcement"
         | "campus_map"
       event_status: "draft" | "published" | "cancelled"
+      knowledge_note_origin:
+        | "manual"
+        | "imported"
+        | "ai_generated"
+        | "ai_organized"
       message_role: "user" | "assistant"
       publish_status: "draft" | "published" | "archived"
+      user_type: "freshman" | "visitor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -940,8 +1277,15 @@ export const Constants = {
         "campus_map",
       ],
       event_status: ["draft", "published", "cancelled"],
+      knowledge_note_origin: [
+        "manual",
+        "imported",
+        "ai_generated",
+        "ai_organized",
+      ],
       message_role: ["user", "assistant"],
       publish_status: ["draft", "published", "archived"],
+      user_type: ["freshman", "visitor"],
     },
   },
 } as const
