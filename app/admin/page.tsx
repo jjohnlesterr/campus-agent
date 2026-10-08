@@ -1,16 +1,12 @@
 import type { LucideIcon } from "lucide-react"
 import {
-  CalendarDays,
-  CalendarPlus,
   ChevronRight,
   CircleCheck,
   FileText,
   FileUp,
-  KeyRound,
   Library,
   Megaphone,
   TriangleAlert,
-  UserPlus,
   Users,
 } from "lucide-react"
 import Link from "next/link"
@@ -24,8 +20,6 @@ import { getBranding } from "@/lib/branding"
 import { formatDate, formatTime } from "@/lib/datetime"
 import { createClient } from "@/lib/supabase/server"
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 function greeting(iso: string, timeZone: string) {
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).format(new Date(iso)))
   return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
@@ -38,53 +32,50 @@ export default async function AdminDashboardPage() {
   // Branding loads alongside the client instead of before the dashboard queries.
   const [supabase, { timezone }] = await Promise.all([createClient(), getBranding()])
   const now = new Date().toISOString()
-  const weekAhead = new Date(new Date(now).getTime() + 7 * DAY_MS).toISOString()
 
   const count = (q: PromiseLike<{ count: number | null }>) => q.then((r) => r.count ?? 0)
   const head = { count: "exact", head: true } as const
   const [
     publishedGuides,
     readySources,
-    students,
-    upcomingEvents,
+    users,
+    publishedAnnouncements,
+    draftAnnouncements,
     draftGuides,
     failedSources,
     pendingSources,
-    temporaryPasswords,
     recent,
   ] = await Promise.all([
     count(supabase.from("guidelines").select("*", head).eq("status", "published")),
-    count(supabase.from("documents").select("*", head).eq("status", "ready")),
+    // Knowledge Library sources only (the campus map image lives in Admin › Campus Map).
+    count(supabase.from("documents").select("*", head).neq("document_type", "campus_map").eq("status", "ready")),
+    // "student" is the internal role value for every non-admin (user) account.
     count(supabase.from("profiles").select("*", head).eq("role", "student")),
-    count(supabase.from("events").select("*", head).eq("status", "published").gte("starts_at", now).lt("starts_at", weekAhead)),
+    count(supabase.from("announcements").select("*", head).eq("status", "published")),
+    count(supabase.from("announcements").select("*", head).eq("status", "draft")),
     count(supabase.from("guidelines").select("*", head).eq("status", "draft")),
-    count(supabase.from("documents").select("*", head).eq("status", "failed")),
-    count(supabase.from("documents").select("*", head).in("status", ["uploaded", "processing"])),
-    count(supabase.from("profiles").select("*", head).eq("role", "student").eq("must_change_password", true)),
+    count(supabase.from("documents").select("*", head).neq("document_type", "campus_map").eq("status", "failed")),
+    count(supabase.from("documents").select("*", head).neq("document_type", "campus_map").in("status", ["uploaded", "processing"])),
     // Latest records by creation time. There is no audit log, so this shows what was
     // created and its current status — not who did it.
     Promise.all([
       supabase.from("profiles").select("id, full_name, email, created_at").eq("role", "student").order("created_at", { ascending: false }).limit(5),
-      supabase.from("documents").select("id, title, status, created_at").order("created_at", { ascending: false }).limit(5),
+      supabase.from("documents").select("id, title, status, created_at").neq("document_type", "campus_map").order("created_at", { ascending: false }).limit(5),
       supabase.from("guidelines").select("id, title, status, created_at").order("created_at", { ascending: false }).limit(5),
-      supabase.from("events").select("id, title, status, created_at").order("created_at", { ascending: false }).limit(5),
       supabase.from("announcements").select("id, title, status, created_at").order("created_at", { ascending: false }).limit(5),
     ]),
   ])
 
-  const [studentRows, sourceRows, guideRows, eventRows, announcementRows] = recent
+  const [userRows, sourceRows, guideRows, announcementRows] = recent
   const activity: Activity[] = [
-    ...(studentRows.data ?? []).map((s) => ({
-      at: s.created_at, type: "Student account created", details: s.full_name ?? s.email ?? "Student", href: `/admin/users/${s.id}`,
+    ...(userRows.data ?? []).map((u) => ({
+      at: u.created_at, type: "User registered", details: u.full_name ?? u.email ?? "User", href: `/admin/users/${u.id}`,
     })),
     ...(sourceRows.data ?? []).map((d) => ({
       at: d.created_at, type: "Source uploaded", details: d.title, href: `/admin/documents/${d.id}`, status: describeStatus(d.status),
     })),
     ...(guideRows.data ?? []).map((g) => ({
       at: g.created_at, type: "Knowledge section created", details: g.title, href: `/admin/knowledge/${g.id}`, status: { tone: g.status },
-    })),
-    ...(eventRows.data ?? []).map((e) => ({
-      at: e.created_at, type: "Event created", details: e.title, href: `/admin/events/${e.id}`, status: { tone: e.status },
     })),
     ...(announcementRows.data ?? []).map((a) => ({
       at: a.created_at, type: "Announcement created", details: a.title, href: `/admin/announcements/${a.id}`, status: { tone: a.status },
@@ -96,21 +87,30 @@ export default async function AdminDashboardPage() {
   const firstName = profile.full_name?.trim().split(/\s+/)[0] || "Admin"
 
   const metrics: { label: string; value: number; note: string; href: string; icon: LucideIcon }[] = [
-    { label: "Published Knowledge", value: publishedGuides, note: "Used by Campus Agent", href: "/admin/knowledge?tab=published", icon: Library },
-    { label: "Ready Sources", value: readySources, note: "Processed and available", href: "/admin/knowledge?tab=pdf", icon: FileText },
-    { label: "Student Accounts", value: students, note: "Provisioned by admins", href: "/admin/users", icon: Users },
-    { label: "Upcoming Events", value: upcomingEvents, note: "Published, next 7 days", href: "/admin/events", icon: CalendarDays },
+    { label: "Published Knowledge", value: publishedGuides, note: "Used by Campus Agent", href: "/admin/knowledge", icon: Library },
+    { label: "Ready Sources", value: readySources, note: "Processed and available", href: "/admin/knowledge", icon: FileText },
+    { label: "Registered Users", value: users, note: "Freshmen and visitors", href: "/admin/users", icon: Users },
+    { label: "Published Announcements", value: publishedAnnouncements, note: "University-wide notices", href: "/admin/announcements?tab=published", icon: Megaphone },
   ]
 
   const actions: { label: string; detail: string; count: number; clear: string; tone: "attention" | "error"; href: string; icon: LucideIcon }[] = [
     {
       label: "Draft sections awaiting review",
-      detail: "Review and publish them so students can see them.",
+      detail: "Review and publish them so Campus Agent can use them.",
       count: draftGuides,
       clear: "No draft sections waiting",
       tone: "attention",
-      href: "/admin/knowledge?tab=draft",
+      href: "/admin/knowledge",
       icon: Library,
+    },
+    {
+      label: "Draft announcements",
+      detail: "Publish them when they are ready for freshmen and visitors.",
+      count: draftAnnouncements,
+      clear: "No draft announcements",
+      tone: "attention",
+      href: "/admin/announcements?tab=draft",
+      icon: Megaphone,
     },
     {
       label: failedSources > 0 ? "Sources that failed or are still processing" : "Sources still processing",
@@ -118,27 +118,16 @@ export default async function AdminDashboardPage() {
       count: failedSources + pendingSources,
       clear: "All sources processed",
       tone: failedSources > 0 ? "error" : "attention",
-      href: "/admin/knowledge?tab=pdf",
+      href: "/admin/knowledge",
       icon: FileText,
-    },
-    {
-      label: "Students with temporary passwords",
-      detail: "They haven't signed in and set their own password yet.",
-      count: temporaryPasswords,
-      clear: "No temporary passwords outstanding",
-      tone: "attention",
-      href: "/admin/users",
-      icon: KeyRound,
     },
   ]
   const open = actions.filter((a) => a.count > 0)
   const resolved = actions.filter((a) => a.count === 0)
 
   const quickActions: { label: string; detail: string; href: string; icon: LucideIcon }[] = [
-    { label: "Add Student", detail: "Create an account with a temporary password", href: "/admin/users/new", icon: UserPlus },
-    { label: "Upload Source", detail: "Add a handbook, policy or campus map", href: "/admin/knowledge?upload=1", icon: FileUp },
-    { label: "New Event", detail: "University-wide or for one college", href: "/admin/events/new", icon: CalendarPlus },
-    { label: "New Announcement", detail: "Post a notice for students", href: "/admin/announcements/new", icon: Megaphone },
+    { label: "Upload Source", detail: "Pick a collection, then add a handbook, policy or other PDF", href: "/admin/knowledge?upload=1", icon: FileUp },
+    { label: "New Announcement", detail: "Post a university-wide notice or advisory", href: "/admin/announcements/new", icon: Megaphone },
   ]
 
   return (
