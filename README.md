@@ -1,23 +1,23 @@
 # Campus Agent
 
-Campus Agent is an AI-powered university information and process navigator designed to help students quickly understand campus procedures, requirements, offices, announcements, events, and other important university information.
+Campus Agent is an AI-powered university information and process navigator designed primarily for incoming freshmen and campus visitors/prospective students. It helps them quickly understand admission, enrollment, programs, campus offices, policies, events, and university services.
 
-Instead of making students search through long handbooks, scattered announcements, or different university offices, Campus Agent provides concise, source-backed answers based on verified university information.
+Instead of searching through long handbooks, scattered announcements, or different university offices, they get concise, source-backed answers based on verified university information.
 
 ---
 
 ## Problem
 
-Students often struggle to find clear and reliable answers to simple university-related questions.
+Incoming freshmen and visitors often struggle to find clear and reliable answers to simple university-related questions.
 
 Common problems include:
 
 - important information being scattered across handbooks, PDFs, announcements, and offices
 - long university documents being difficult to search and understand
-- students not knowing which office handles a concern
-- students being unsure about required steps or documents
+- not knowing which office handles a concern
+- being unsure about required steps or documents
 - outdated or conflicting information
-- students feeling hesitant to repeatedly ask university staff for simple questions
+- feeling hesitant to repeatedly ask university staff for simple questions
 - unnecessary time spent searching for answers that should be easy to access
 
 A simple campus question should not feel like a campus-wide search mission.
@@ -26,14 +26,16 @@ A simple campus question should not feel like a campus-wide search mission.
 
 ## Solution
 
-Campus Agent provides one centralized AI-assisted platform where students can ask university-related questions and receive clear answers based only on verified school information.
+Campus Agent provides one centralized AI-assisted platform where freshmen and visitors can ask university-related questions and receive clear answers based only on verified school information.
 
-The system can help students understand:
+The system can help them understand:
 
+- admission and freshman / transferee requirements
 - enrollment procedures
-- INC / incomplete grade requirements
-- graduation requirements
+- programs and courses
+- scholarships and the academic calendar
 - document requests
+- published policies such as INC or graduation honors
 - academic policies
 - dress code and university rules
 - office locations
@@ -43,7 +45,7 @@ The system can help students understand:
 
 Campus Agent retrieves relevant information from approved university sources before generating an answer.
 
-If the available sources do not contain enough information, the system avoids guessing and tells the student that the requested information is not available in its verified references.
+If the available sources do not contain enough information, the system avoids guessing and tells the user that the requested information is not available in its verified references.
 
 ---
 
@@ -51,7 +53,7 @@ If the available sources do not contain enough information, the system avoids gu
 
 ### AI Campus Assistant
 
-Students can ask questions naturally and receive concise, student-friendly answers.
+Guests and signed-in users can ask questions naturally and receive concise, easy-to-follow answers.
 
 The AI:
 
@@ -85,7 +87,7 @@ Administrators can manage guides containing information such as:
 - student services
 - university rules
 
-Students can browse these guides even without asking the AI.
+Users can browse these guides even without asking the AI.
 
 ---
 
@@ -109,7 +111,7 @@ The system is designed so that updated sources can replace older information use
 
 Administrators can create and manage university events.
 
-Students can view:
+Users can view:
 
 - university-wide events
 - department-specific events
@@ -124,7 +126,7 @@ Students can view:
 
 Administrators can publish university and department announcements.
 
-Students can browse announcements relevant to their department while still having access to university-wide information.
+Users see announcements for their intended college first while still having access to university-wide information.
 
 ---
 
@@ -132,27 +134,29 @@ Students can browse announcements relevant to their department while still havin
 
 Campus Agent includes university building and office information.
 
-Students can ask questions such as:
+Users can ask questions such as:
 
 > Where is the Registrar?
 
-Campus Agent can identify the appropriate building and direct the student to the campus map.
+Campus Agent can identify the appropriate building and direct the user to the campus map.
 
 ---
 
-### Student Accounts
+### Guest Access and Accounts
 
-Students can create an account and access a personalized Campus Agent experience.
+Anyone can ask Campus Agent from the landing page without signing in. Guests get **3 free successful questions**, counted on the server in a signed, httpOnly cookie. Failed AI requests, server errors, empty submissions and instant local replies (greetings, off-topic) don't count. After the third answer, the ask box is replaced by a friendly prompt to create an account or sign in.
 
-Student information may include:
+Anyone with a valid email can sign up (`/signup`):
 
-- name
-- student ID
-- department
-- program
-- year level
+- full name, email, password
+- user type: **Incoming Freshman** or **Visitor**
+- optional intended college and program
 
-Department information is used to personalize events and announcements.
+Signed-in users keep their conversation history and can use Guides, Events, Announcements, Campus Map and How It Works. Their intended college/program only personalizes ranking; it never restricts what they can browse.
+
+There are two account roles: **user** and **admin**. Freshman/visitor is a profile field (`profiles.user_type`), not a role. For backward compatibility the database keeps the internal role value `student` for every non-admin account, and the UI shows it as "User". Public sign-up always creates a user: the role is set by a database trigger and is never read from the form. Admin accounts cannot be created through sign-up.
+
+Accounts created before public sign-up (student ID, department, program, year level, temporary passwords) keep working; those columns are now optional.
 
 ---
 
@@ -168,17 +172,25 @@ Admin modules include:
 - Events
 - Announcements
 - Campus Map
-- Users
+- Users (registered freshmen and visitors; manual account creation is a secondary option)
 - Settings
 
 Admin access is role-protected and is not exposed as a public admin login.
+
+### Environment
+
+Besides the Supabase and AI keys, the guest question limit signs its cookie with `GUEST_SESSION_SECRET` (server-only). If it isn't set, a key derived from `ANTHROPIC_API_KEY` is used.
+
+If Supabase Auth has **Confirm email** enabled, new users are asked to open the confirmation link (it returns to `/auth/confirm`). Otherwise they go straight to `/app`. Set `NEXT_PUBLIC_APP_URL` in production so confirmation links point to the deployed site.
+
+Run tests with `npm test`.
 
 ---
 
 ## How Campus Agent Works
 
 ```text
-Student Question
+Guest or User Question
       ↓
 Search Verified University Sources
       ↓

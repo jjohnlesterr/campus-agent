@@ -8,8 +8,9 @@ web
 
 ## Users
 
-- **Enrolled students** (primary): signed in with a school account, usually on a phone between classes or at home, trying to get an official process done — fixing an INC grade, enrolling, clearance, finding the Registrar and when it is open.
-- **Public visitors**: prospective and new students, parents, visitors asking general questions (admissions, enrollment, offices, public events) without an account.
+- **Incoming freshmen** (primary): new and prospective students, usually on a phone, trying to get admission and enrollment done, pick a program, and find offices and campus events. They try 3 free questions as guests, then sign up with any email to keep going and save their chats.
+- **Visitors / prospective students**: transferees, parents and campus visitors asking general questions (admissions, programs, offices, public events, dress code, where to go).
+- **Enrolled students** (secondary): published policy knowledge such as INC or graduation honors stays available.
 - **University admins** (single Super Admin role in the MVP): office staff maintaining the verified knowledge base, documents, events, announcements, offices and campus locations on a desktop.
 
 ## Product Purpose

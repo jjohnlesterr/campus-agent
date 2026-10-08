@@ -1,6 +1,11 @@
 # Knowledge Library
 
-Admin → **Knowledge Library** (`/admin/knowledge`) replaces the separate Sources and Knowledge Base pages. It lists **sources** (uploaded files, `documents`) and **manual entries** (knowledge sections with no file) as cards, with All / PDF Documents / Manual Entries / Published / Drafts / Archived tabs and search.
+Admin → **Knowledge Library** (`/admin/knowledge`) replaces the separate Sources and Knowledge Base pages. It is organized as **Knowledge Library → Collection → source → knowledge sections**:
+
+- The root lists **collections** (`knowledge_collections`: name, optional description) with source and section counts. Collections are one level only (no nesting) and are organizational metadata: Campus Agent searches Published knowledge from every collection.
+- A collection lists its **sources** (uploaded files, `documents.collection_id`) and **manual entries** (knowledge sections with no file, `guidelines.collection_id`) as cards, with All / Published / Drafts / Archived tabs and search. Upload PDF and Create manually live here.
+- Sources with no collection appear under **Uncategorized** (a system grouping, not a row). Any source or entry can be moved with **Move to collection**; only `collection_id` changes.
+- A collection can be deleted only when it is empty (also enforced by `on delete restrict`).
 
 - Source = the original file (PDF, or an image such as the campus map).
 - Knowledge section = reviewed information, stored in `guidelines`. Sections extracted from a source keep `source_document_id` and their page references; manual entries have no source.
@@ -10,11 +15,12 @@ Admin → **Knowledge Library** (`/admin/knowledge`) replaces the separate Sourc
 
 | Route | Purpose |
 | --- | --- |
-| `/admin/knowledge` | Library (cards, tabs, search, Upload PDF, Create manually) |
-| `/admin/documents/[id]` | Source details: metadata, original file, AI overview, extracted sections |
+| `/admin/knowledge` | Library root: collection cards, search, Create collection |
+| `/admin/knowledge/collections/[id]` | One collection (or `uncategorized`): source cards, tabs, search, Upload PDF, Create manually, Edit/Delete collection |
+| `/admin/documents/[id]` | Source details: summary, Original PDF, then Knowledge Sections below it in page order (title, pages, status, text; Edit in place, overflow actions, Add section, Publish drafts with a review confirmation) |
 | `/admin/knowledge/[id]` | Review / edit one section (PDF page on the left, section on the right) |
-| `/admin/knowledge/new` | Create a manual entry |
-| `/admin/documents` | Redirects to the library (`?upload=1` opens the upload dialog) |
+| `/admin/knowledge/new` | Create a manual entry (`?collection=<id>` puts it in that collection) |
+| `/admin/documents` | Redirects to the library (`?upload=1` asks the admin to open a collection first) |
 
 ## Workflow
 
@@ -35,6 +41,10 @@ Source actions: View PDF, Replace file, Analyze / Re-analyze, Archive (archives 
 `lib/rag/search.ts` calls `search_knowledge` (migration `20261006032400_knowledge_library.sql`): PostgreSQL full-text search over Published sections (title weighted above summary + content), under the caller's RLS, so public visitors only see Published + public sections. Citations use the source title and the section's pages (`Information WUP — Pages 1, 2`); manual entries cite their title and reference note. `private.knowledge_source_title` returns the source title for citations even while a source is being re-analyzed, and returns nothing for archived sources.
 
 The migration backfilled `content` for existing sections from their linked extracted text, so current answers keep the same wording and page citations. `search_document_chunks` is unused but kept for rollback.
+
+## Note: retired one-note experiment
+
+Migration `20261007172631_knowledge_notes.sql` briefly added a one-large-note workflow (`knowledge_notes`, `knowledge_chunks`, `publish_knowledge_note`, `set_knowledge_note_status`). It was reverted: `20261007180758_restore_section_search.sql` restored the section-only `search_knowledge` above and revoked the two functions. The tables and one imported Draft note were left in place, unused, rather than dropped. No chunks were ever published.
 
 ## Re-analysis safety (MVP)
 

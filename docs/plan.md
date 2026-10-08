@@ -1,8 +1,12 @@
 # Campus Agent — Development Plan
 
+> **Product change (2026-10-08):** the Events module is retired. University-wide **Announcements** (optional category, published date, optional source label/URL; no department targeting) now carry current notices — enrollment schedules, suspensions, advisories, scholarship reminders and official university activities. Campus Agent answers time-sensitive questions from Published announcements first. Sections below that describe Events or department-specific announcements are historical. The `events` table is kept, unused.
+
 ## 1. Project Overview
 
-Campus Agent is an AI-powered university process navigation platform designed to help students find, understand, and follow official school procedures.
+Campus Agent is an AI-powered university information and process navigator designed primarily for incoming freshmen and campus visitors/prospective students. It helps them find, understand, and follow official school procedures.
+
+> **Direction update (Oct 2026):** the primary audience is incoming freshmen and visitors, no longer only enrolled students. Guests can ask 3 free questions on the landing page; anyone can then sign up (any email) with just a name, email and password. Roles are only user and admin. See docs/system-spec.md §4, §5 and §81.
 
 It is not intended to function as a generic chatbot.
 
@@ -102,15 +106,11 @@ Example placeholder:
 
 # 4. Student Experience
 
-Students must authenticate using an approved school account.
+Users sign up themselves with any valid email address and a password (Supabase Auth). Sign-up asks only for full name, email and password; Incoming Freshman / Visitor and intended college/program can be set later on the profile.
 
-Possible authentication identifiers:
+Student ID, school email and year level are no longer required. Older admin-created accounts keep working.
 
-- official school email
-- student ID
-- password
-
-For the MVP, Supabase Auth will handle authentication.
+Guests can ask 3 free successful questions before being asked to create an account or sign in.
 
 There should be no "Login as Student" / "Login as Admin" selector.
 
@@ -1088,9 +1088,9 @@ Announcement management
 
 Office management
 
-/admin/locations
+/admin/campus-map
 
-Campus location management
+Campus Map (Campus Information): map image, map legend, and the Buildings & Locations directory (campus_buildings, campus_locations, campus_map_legend) that answers location questions. /admin/locations redirects here.
 
 /admin/ai
 

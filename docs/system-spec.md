@@ -1,5 +1,7 @@
 # Campus Agent — System Specification
 
+> **Product change (2026-10-08):** the Events module is retired. University-wide **Announcements** (optional category, published date, optional source label/URL; no department targeting) now carry current notices — enrollment schedules, suspensions, advisories, scholarship reminders and official university activities. Campus Agent answers time-sensitive questions from Published announcements first. Sections below that describe Events or department-specific announcements are historical. The `events` table is kept, unused.
+
 ## 1. Purpose
 
 This document defines the expected system behavior, user roles, pages, permissions, data entities, AI flows, document ingestion pipeline, and core application rules for Campus Agent.
@@ -16,9 +18,11 @@ Do not implement features that contradict this specification without reviewing t
 
 # 2. Product Summary
 
-Campus Agent is an AI-powered university process navigation system.
+Campus Agent is an AI-powered university information and process navigator designed primarily for incoming freshmen and campus visitors/prospective students.
 
-Its primary purpose is to help students:
+It is no longer exclusive to currently enrolled students. Published knowledge useful to current students (e.g. INC, graduation honors) stays available.
+
+Its primary purpose is to help freshmen and visitors:
 
 - understand university procedures
 - find official requirements
@@ -49,62 +53,62 @@ It must not:
 
 Campus Agent contains three main experiences:
 
-1. Public Experience
-2. Authenticated Student Experience
-3. Internal Admin System
+1. Public (guest) experience: landing page with a limited free AI
+2. Authenticated user experience: incoming freshmen and visitors
+3. Internal admin system
 
 
 ---
 
 # 4. Roles
 
-## 4.1 Public User
+Only two account roles exist: **user** and **admin**.
+
+Freshman / visitor is a profile field (`profiles.user_type`), not a role: both have the same permissions.
+
+## 4.1 Guest (signed out)
 
 No account required.
 
 Can access:
 
 - landing page
-- limited public AI
-- public school guides
-- public events
-- public announcements
-- public office information
-- campus map
-- general enrollment/admissions information
+- the landing-page AI: **3 free successful questions** (see §81)
+- public, published, verified knowledge only
 
 Cannot access:
 
-- personalized department content
 - saved conversation history
-- student profile
+- profile
 - admin system
-- restricted/internal information
+- authenticated-only or internal information
+
+After 3 successful questions the ask box is replaced by a sign-up gate:
+
+"You’ve used your free questions. Create an account to continue using Campus Agent and save your conversations." with **Create account** and **Sign in**.
 
 
 ---
 
-## 4.2 Student
+## 4.2 User (incoming freshman or visitor)
 
-Authenticated university student.
+Self-registered account.
 
 Can access:
 
-- Campus Agent AI
-- personalized events
-- personalized announcements
-- school guides
-- offices
-- campus map
-- conversation history
-- student profile
+- Campus Agent AI (no question limit)
+- saved conversation history (owner-only; delete supported)
+- School Guides / Knowledge
+- events and announcements (intended college ranked first, never restricted)
+- offices and campus map
+- How It Works
+- own profile (name, user type, intended college/program)
 
-Student cannot:
+User cannot:
 
 - create/edit official knowledge
 - upload official documents
-- create events
-- create announcements
+- create events or announcements
 - modify office information
 - access admin routes
 
@@ -126,10 +130,11 @@ Admin can:
 - manage announcements
 - manage offices
 - manage campus locations
+- view and manage users
 - use Admin AI Assistant
 - configure basic system settings
 
-There is no public admin registration.
+There is no public admin registration. Admin accounts are authorized manually in the database.
 
 
 ---
@@ -138,23 +143,37 @@ There is no public admin registration.
 
 Authentication provider:
 
-Supabase Auth
+Supabase Auth (email + password).
 
-Minimum supported roles:
+Role is stored in trusted database data: `profiles.role` (enum `app_role`).
 
-- student
-- admin
+Database values:
 
-Role must be stored in trusted database data.
+- `student`: every non-admin account. Kept as the internal value for backward compatibility and shown as **User** in the product.
+- `admin`
 
-Recommended:
+## 5.1 Public sign-up (`/signup`)
 
-profiles.role
+Any valid email address may register.
 
-Allowed values:
+Required: full name, email, password, confirm password. The full name is the display name used in greetings ("What do you need help with, Maria?").
 
-- student
-- admin
+Not asked at sign-up: user type, intended college, intended program. The `profiles` columns stay nullable; users can set them later on their profile.
+
+Not required: student ID, school email domain, year level, department.
+
+Security:
+
+- the form has no role field, and any role sent to the server is ignored
+- the signup trigger (`private.handle_new_user`) always creates the profile with the default user role; any user type, college or program in the metadata (older clients) is validated again before it is stored
+- self-registered accounts (`signup_source: "self"` in the metadata) have `must_change_password = false`; admin-provisioned accounts keep `true`
+- with Supabase "Confirm email" enabled, the user confirms via `/auth/confirm`; otherwise they land on `/app`
+
+## 5.2 Legacy and admin-created accounts
+
+Accounts created by admins before public sign-up (student ID, department, program, year level, temporary password) keep working. Those columns are nullable and kept.
+
+Admins may still create an account manually from Admin → Users (temporary password, changed on first login). This is a secondary path, not the main onboarding flow.
 
 
 ---
@@ -163,25 +182,16 @@ Allowed values:
 
 There should NOT be:
 
-- Login as Student button
-- Login as Admin button
+- Login as Student / Login as Admin buttons
 - user-selected role toggle
 
-User signs in normally.
+User signs in normally ("Sign in to continue to Campus Agent.").
 
 After login:
 
-If role = student:
+If role = user (`student` in the database): redirect to `/app`
 
-redirect to:
-
-/app
-
-If role = admin:
-
-redirect to:
-
-/admin
+If role = admin: redirect to `/admin`
 
 
 ---
@@ -216,7 +226,7 @@ Recommended routes:
 Public landing page
 
 
-/login
+/login, /signup
 
 Authentication
 
@@ -363,9 +373,9 @@ Announcement management
 Office management
 
 
-/admin/locations
+/admin/campus-map
 
-Campus location management
+Campus Map (Campus Information): map image, map legend, and the Buildings & Locations directory (campus_buildings, campus_locations, campus_map_legend) that answers location questions. /admin/locations redirects here.
 
 
 /admin/ai
@@ -393,11 +403,17 @@ Landing page should include:
 - upcoming public events
 - office directory shortcut
 - campus map shortcut
-- student login CTA
+- Sign in and Create account CTAs (no admin login option)
 
-Public AI input example:
+Hero: "New to campus? Ask Campus Agent."
 
-"Ask about enrollment, school procedures, or campus services..."
+Supporting text: "Get quick answers about admissions, enrollment, programs, campus offices, policies, events, and university services."
+
+Suggested questions: How do I apply for admission? · What programs does CECT offer? · What are the freshman requirements? · Where is the Registrar? · Are there upcoming campus events?
+
+Subtle note: "3 questions free. Sign up to continue and save your chats." The remaining count is shown after each answer ("2 free questions remaining").
+
+Header: How It Works · Guides · Campus Map · Sign in · Create account
 
 
 ---
@@ -466,25 +482,31 @@ Recent Conversations
 
 ---
 
-# 14. Student Profile
+# 14. User Profile
 
-Expected fields:
+Primary fields:
 
 - id
 - full_name
-- student_id
 - email
-- department_id
-- program_id
-- year_level
-- avatar_url
-- role
+- role (`student` = user, `admin`)
+- user_type (`freshman` | `visitor`; null for admins and legacy accounts)
+- intended_department_id (optional)
+- intended_program_id (optional)
 - created_at
 - updated_at
 
-For MVP:
+Legacy fields (nullable, kept for backward compatibility; not asked at sign-up):
 
-department/program/year level may be manually selected during onboarding if official student system integration is unavailable.
+- student_id
+- department_id
+- program_id
+- year_level
+- must_change_password (admin-created accounts only)
+
+Users may edit their own full_name, user_type and intended college/program. Role, email and must_change_password are never user-editable.
+
+Personalization uses intended_department_id, falling back to the legacy department_id.
 
 
 ---
@@ -1650,16 +1672,16 @@ Do not implement unless useful during schema design.
 
 # 73. RLS — Profiles
 
-Students:
+Users:
 
 - read own profile
-- update allowed own profile fields
+- update only full_name, user_type, intended_department_id, intended_program_id (column grants + own-row RLS)
 
 Admin:
 
 - broader read access where necessary
 
-Role field must not be freely editable by students.
+Role field must never be editable by users. Profiles are created only by the signup trigger.
 
 ---
 
@@ -1748,20 +1770,20 @@ Do not allow uncontrolled public AI usage if it risks API cost abuse.
 
 # 81. Public AI Limitations
 
-Public users should receive fewer capabilities.
+Guests (signed out) use an anonymous database client: only public, published, Ready knowledge, public events/announcements, offices, programs and campus locations. Draft and archived content is never used, by guests or users.
 
-Examples:
+Allowed: admission, enrollment, freshman/transferee requirements, programs, scholarships, academic calendar, offices, campus map, events, announcements, basic policies (dress code, INC, honors… when published), university services.
 
-allowed:
-- enrollment
-- admissions
-- public events
-- office locations
+Not allowed: lookups of a person's own record ("what are my grades"). These get a fixed reply pointing to the responsible office, with no AI call.
 
-not allowed:
-- personalized student context
-- private/internal announcements
-- student-specific data
+## 81.1 Guest question limit
+
+- 3 successful questions per guest
+- counted on the server in a signed, httpOnly cookie (`ca_guest`, HMAC with `GUEST_SESSION_SECRET`): a refresh can't reset it and the browser can't edit it. Clearing cookies does reset it: this is casual-reset protection, not anti-fraud
+- counted: any answered, partial or not-found answer
+- not counted: failed AI requests, server errors, empty/invalid submissions, rate-limited requests, instant local replies (greetings, off-topic, gibberish)
+- signed-in users have no limit
+- the guest chat is temporary (in-page only) and is not saved
 
 ---
 
