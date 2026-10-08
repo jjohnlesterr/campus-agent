@@ -155,11 +155,12 @@ test('PNG and JPEG sources under Other are Ready without extraction', async () =
   }
 })
 
-test('a Campus Map PDF is a Ready reference file right away (the map page uses it)', async () => {
+test('the campus map cannot be registered as a Knowledge Library source (it belongs to Admin › Campus Map)', async () => {
   const { state, input, registerSource } = database()
   const result = await registerSource({ ...input, sourceType: 'campus_map' })
-  assert.equal(result.ok, true)
-  assert.equal(state.doc.status, 'ready')
+  assert.equal(result.ok, false)
+  assert.equal(state.doc, null, 'no documents row is created')
+  assert.equal(state.inserts, 0)
   assert.equal(state.chunks.length, 0)
 })
 

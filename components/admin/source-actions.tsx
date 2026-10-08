@@ -1,10 +1,11 @@
 "use client"
 
-import { Archive, ArchiveRestore, CircleAlert, ExternalLink, FileUp, LoaderCircle, MoreHorizontal, Sparkles, Trash2 } from "lucide-react"
+import { Archive, ArchiveRestore, ExternalLink, FileUp, FolderInput, MoreHorizontal, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
 
-import { analyzeDocument, archiveDocument, deleteDocument, discardUnregisteredSource, replaceSourceFile, restoreDocument } from "@/app/admin/documents/actions"
+import { archiveDocument, deleteDocument, discardUnregisteredSource, replaceSourceFile, restoreDocument } from "@/app/admin/documents/actions"
+import { type CollectionOption, MoveToCollectionDialog } from "@/components/admin/collection-dialogs"
 import { checkSourceFile, uploadSourceFile } from "@/components/admin/source-uploader"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -16,14 +17,17 @@ type Props = {
   status: string
   isPdf: boolean
   fileUrl: string | null
-  analyzed: boolean
   publishedCount: number
   otherSectionCount: number
+  collectionId: string | null
+  collections: CollectionOption[]
 }
 
-type Open = "analyze" | "replace" | "archive" | "delete" | null
+type Open = "replace" | "move" | "archive" | "delete" | null
 
-export function SourceActions({ id, title, status, isPdf, fileUrl, analyzed, publishedCount, otherSectionCount }: Props) {
+// Source-level actions (View, Replace, Move to collection, Archive/Restore, Delete). Analyze with AI lives in
+// the Knowledge Sections header, next to the sections it creates.
+export function SourceActions({ id, title, status, isPdf, fileUrl, publishedCount, otherSectionCount, collectionId, collections }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState<Open>(null)
   const [pending, startTransition] = useTransition()
@@ -52,25 +56,6 @@ export function SourceActions({ id, title, status, isPdf, fileUrl, analyzed, pub
     })
   }
 
-  function analyze() {
-    setError(null)
-    startTransition(async () => {
-      try {
-        const result = await analyzeDocument(id)
-        if (!result.ok) return setError(result.error)
-        setOpen(null)
-        const sections = result.created === 1 ? "1 new Draft section" : `${result.created} new Draft sections`
-        const existing = result.skipped ? ` ${result.skipped} existing ${result.skipped === 1 ? "section was" : "sections were"} left unchanged.` : ""
-        const overview = result.overview ? "" : " The AI overview is unavailable right now; sections were created from the document's headings."
-        setNotice(`Analyzed ${result.pages} ${result.pages === 1 ? "page" : "pages"}: ${sections}.${existing}${overview}`)
-        router.refresh()
-      } catch {
-        setError("Analysis was interrupted. Refresh the page to check the source status, then try again.")
-        router.refresh()
-      }
-    })
-  }
-
   return (
     <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
       <div className="flex flex-wrap gap-2">
@@ -86,17 +71,15 @@ export function SourceActions({ id, title, status, isPdf, fileUrl, analyzed, pub
             Replace file
           </Button>
         )}
-        {isPdf && !archived && (
-          <Button size="lg" disabled={processing} onClick={() => setOpen("analyze")}>
-            {processing ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
-            {processing ? "Analyzing…" : analyzed ? "Re-analyze with AI" : "Analyze with AI"}
-          </Button>
-        )}
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" size="icon-lg" aria-label="More source actions" />}>
             <MoreHorizontal aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-auto min-w-44">
+            <DropdownMenuItem onClick={() => setOpen("move")}>
+              <FolderInput aria-hidden="true" />
+              Move to collection
+            </DropdownMenuItem>
             {archived ? (
               <DropdownMenuItem onClick={() => run(() => restoreDocument(id), "Source restored. Its sections stay Archived until you restore them.")}>
                 <ArchiveRestore aria-hidden="true" />
@@ -119,32 +102,16 @@ export function SourceActions({ id, title, status, isPdf, fileUrl, analyzed, pub
       {notice && !open && <p role="status" className="max-w-md text-sm text-muted-foreground lg:text-right">{notice}</p>}
       {error && !open && <p role="alert" className="max-w-md text-sm text-destructive lg:text-right">{error}</p>}
 
-      <Dialog open={open === "analyze"} onOpenChange={close}>
-        <DialogContent className="sm:max-w-lg" showCloseButton={!pending}>
-          <DialogHeader>
-            <DialogTitle>Analyze document with AI</DialogTitle>
-            <DialogDescription>
-              Campus Agent will extract and organize this document into reviewable knowledge sections. Nothing will be published automatically.
-            </DialogDescription>
-          </DialogHeader>
-          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed">
-            <li>Text is extracted page by page.</li>
-            <li>Sections are grouped by topic, and page references are preserved.</li>
-            <li>You can edit, delete or publish each section.</li>
-            <li>Only Published sections become available to Campus Agent.</li>
-            {analyzed && <li>Existing sections — including Published ones — are kept as they are. New topics are added as Drafts.</li>}
-          </ul>
-          {pending && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Analyzing… large documents can take a minute.</p>}
-          {error && <p role="alert" className="flex items-start gap-2 text-sm text-destructive"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{error}</p>}
-          <DialogFooter>
-            <Button variant="outline" size="lg" disabled={pending} onClick={() => close(false)}>Cancel</Button>
-            <Button size="lg" disabled={pending} onClick={analyze}>
-              {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
-              {pending ? "Analyzing…" : "Start analysis"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MoveToCollectionDialog
+        kind="source"
+        id={id}
+        title={title}
+        currentCollectionId={collectionId}
+        collections={collections}
+        open={open === "move"}
+        onOpenChange={(next) => { if (!next) setOpen(null) }}
+        onMoved={(target) => { setNotice(`Moved to ${collections.find((c) => c.id === target)?.name ?? "Uncategorized"}.`); router.refresh() }}
+      />
 
       <ReplaceFileDialog id={id} isPdf={isPdf} open={open === "replace"} onOpenChange={(next) => { if (!next) setOpen(null) }} onDone={(message) => { setOpen(null); setNotice(message); router.refresh() }} />
 

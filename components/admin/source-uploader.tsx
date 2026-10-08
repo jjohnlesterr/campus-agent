@@ -28,7 +28,8 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "cn"
 
-type UploadType = "handbook" | "policy" | "announcement" | "calendar" | "campus_map" | "other"
+// The campus map is uploaded from Admin › Campus Map, not as a Knowledge Library source.
+type UploadType = "handbook" | "policy" | "announcement" | "calendar" | "other"
 
 type Phase =
   | { kind: "idle" }
@@ -76,10 +77,10 @@ export async function uploadSourceFile(file: File): Promise<{ filePath: string }
 }
 
 /** "Upload PDF" button + modal: Title, Source type, File. PDFs are analyzed later, on request. */
-export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean }) {
+export function SourceUploader({ collectionId }: { collectionId: string | null }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [sourceType, setSourceType] = useState<UploadType>("handbook")
   const [visibility, setVisibility] = useState<"public" | "authenticated">("public")
@@ -132,6 +133,7 @@ export function SourceUploader({ defaultOpen = false }: { defaultOpen?: boolean 
         title: title.trim(),
         sourceType,
         visibility,
+        collectionId,
         filePath: uploaded.filePath,
         fileName: file.name,
         fileSize: file.size,

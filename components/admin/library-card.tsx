@@ -10,8 +10,11 @@ import type { SourceType } from "@/lib/sources"
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`
 
-/** One Knowledge Library card: a source file or a manual entry. The whole card opens it. */
-export function LibraryCard({ item, timezone, thumbnailUrl }: { item: LibraryItem; timezone: string; thumbnailUrl?: string }) {
+/**
+ * One Knowledge Library card: a source file or a manual entry. The whole card opens it;
+ * `menu` (e.g. Move to collection) sits above the card link.
+ */
+export function LibraryCard({ item, timezone, thumbnailUrl, menu }: { item: LibraryItem; timezone: string; thumbnailUrl?: string; menu?: React.ReactNode }) {
   const href = item.kind === "source" ? `/admin/documents/${item.id}` : `/admin/knowledge/${item.id}`
   const isPdf = item.kind === "source" && item.mimeType === "application/pdf"
   const status = item.kind === "source" ? describeStatus(item.status) : { tone: item.status, label: undefined }
@@ -19,7 +22,9 @@ export function LibraryCard({ item, timezone, thumbnailUrl }: { item: LibraryIte
   let meta: string
   let description: string
   if (item.kind === "source") {
-    meta = isPdf ? `PDF · ${plural(item.counts.total, "section")}` : `Image · ${sourceTypeLabel(item.documentType as SourceType)}`
+    meta = isPdf
+      ? `PDF · ${sourceTypeLabel(item.documentType as SourceType)} · ${plural(item.counts.total, "section")}`
+      : `Image · ${sourceTypeLabel(item.documentType as SourceType)}`
     description = item.summary
       ?? (isPdf
         ? item.status === "uploaded" ? "Not analyzed yet. Open it and choose Analyze with AI." : sourceTypeLabel(item.documentType as SourceType)
@@ -41,7 +46,10 @@ export function LibraryCard({ item, timezone, thumbnailUrl }: { item: LibraryIte
             <Icon className="size-5" />
           </span>
         )}
-        <StatusBadge status={status.tone} label={status.label} />
+        <div className="flex items-center gap-1">
+          <StatusBadge status={status.tone} label={status.label} />
+          {menu}
+        </div>
       </div>
       <h2 className="mt-3 leading-snug font-semibold">
         <Link href={href} className="outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring group-hover:text-primary">

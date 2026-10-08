@@ -3,8 +3,6 @@
 
 export const LIBRARY_TABS = [
   { value: "all", label: "All" },
-  { value: "pdf", label: "PDF Documents" },
-  { value: "manual", label: "Manual Entries" },
   { value: "published", label: "Published" },
   { value: "draft", label: "Drafts" },
   { value: "archived", label: "Archived" },
@@ -72,12 +70,11 @@ export function matchesTab(item: LibraryItem, tab: LibraryTab) {
   if (tab === "archived") return archived
   if (archived) return false
   if (item.kind === "source") {
-    if (tab === "pdf") return item.mimeType === "application/pdf"
     if (tab === "published") return item.counts.published > 0
     if (tab === "draft") return item.counts.draft > 0
     return tab === "all"
   }
-  if (tab === "manual" || tab === "all") return true
+  if (tab === "all") return true
   return item.status === tab
 }
 

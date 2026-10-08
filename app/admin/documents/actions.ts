@@ -9,7 +9,8 @@ import { type AnalysisResult, analyzeSource } from "@/lib/knowledge/analyze"
 import { MAX_SOURCE_BYTES, PDF, acceptedMimeTypes, detectMimeType, isReferenceOnly } from "@/lib/sources"
 import { createClient } from "@/lib/supabase/server"
 
-const SOURCE_TYPES = ["handbook", "policy", "announcement", "calendar", "campus_map", "other"] as const
+// Knowledge Library source types. The campus map is not one: it lives in Admin › Campus Map.
+const SOURCE_TYPES = ["handbook", "policy", "announcement", "calendar", "other"] as const
 const uploadPathSchema = z.string().regex(/^sources\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|png|jpg|webp)$/, "Invalid upload path.")
 
 const fileSchema = z.object({
@@ -22,6 +23,8 @@ const registerSchema = fileSchema.extend({
   title: z.string().trim().min(2, "Enter a title.").max(200),
   sourceType: z.enum(SOURCE_TYPES),
   visibility: z.enum(["public", "authenticated"]),
+  // The Knowledge Library collection it was uploaded into (null: Uncategorized).
+  collectionId: z.uuid().nullable().default(null),
 })
 
 export type RegisterResult =
@@ -43,8 +46,10 @@ export async function discardUnregisteredSource(filePath: string) {
 
 function revalidate(id?: string) {
   revalidatePath("/admin/knowledge")
+  revalidatePath("/admin/knowledge/collections/[id]", "page")
   revalidatePath("/admin")
-  revalidatePath("/admin/locations") // shows the newest Campus Map source
+  revalidatePath("/admin/campus-map") // shows the newest Campus Map source
+  revalidatePath("/app/map")
   revalidatePath("/app/guides")
   if (id) revalidatePath(`/admin/documents/${id}`)
 }
@@ -70,7 +75,7 @@ export async function registerSource(input: z.input<typeof registerSchema>): Pro
   await requireAdmin()
   const parsed = registerSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid upload." }
-  const { title, sourceType, visibility, filePath, fileName, fileSize } = parsed.data
+  const { title, sourceType, visibility, collectionId, filePath, fileName, fileSize } = parsed.data
 
   const supabase = await createClient()
   const { data: existing, error: lookupError } = await supabase.from("documents").select("id").eq("file_path", filePath).maybeSingle()
@@ -90,13 +95,14 @@ export async function registerSource(input: z.input<typeof registerSchema>): Pro
     .insert({
       title,
       visibility,
+      collection_id: collectionId,
       document_type: sourceType,
       file_path: filePath,
       file_name: fileName,
       mime_type: verified.mimeType,
       file_size: verified.size,
       // Images and campus maps are reference files, Ready to view right away. Other PDFs wait for Analyze with AI.
-      status: referenceOnly || sourceType === "campus_map" ? "ready" : "uploaded",
+      status: referenceOnly ? "ready" : "uploaded",
     })
     .select("id")
     .single()

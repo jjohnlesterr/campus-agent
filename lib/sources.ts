@@ -9,13 +9,12 @@ export const PDF = "application/pdf"
 export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const
 export const MAX_SOURCE_BYTES = 25 * 1024 * 1024
 
-/** Types an admin can choose when uploading. */
+/** Types an admin can choose when uploading. The campus map is managed in Admin › Campus Map instead. */
 export const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string; hint: string }[] = [
   { value: "handbook", label: "Student Handbook", hint: "After upload, analyze it with AI to create knowledge sections for review." },
   { value: "policy", label: "Policy / Memo", hint: "After upload, analyze it with AI to create knowledge sections for review." },
   { value: "announcement", label: "Announcement Reference", hint: "After upload, analyze it with AI to create knowledge sections for review." },
   { value: "calendar", label: "Academic Calendar", hint: "After upload, analyze it with AI to create knowledge sections for review." },
-  { value: "campus_map", label: "Campus Map", hint: "A PDF can be analyzed with AI; an image is stored as a reference to view." },
   { value: "other", label: "Other", hint: "After upload, analyze it with AI to create knowledge sections for review." },
 ]
 

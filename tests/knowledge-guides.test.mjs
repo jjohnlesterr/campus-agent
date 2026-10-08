@@ -214,8 +214,10 @@ test('invalid bulk requests do not write, and failed status updates do not repor
   assert(failing.state.guides.every(g => g.status === 'draft'))
 })
 const library = load('lib/knowledge/library.ts')
-test('library tabs have safe defaults and separate sources, manual entries and archived items', () => {
+test('library tabs are All / Published / Drafts / Archived, with safe defaults for old links', () => {
+  assert.deepEqual(library.LIBRARY_TABS.map(t => t.value), ['all', 'published', 'draft', 'archived'])
   assert.equal(library.libraryTab('draft'), 'draft'); assert.equal(library.libraryTab(['draft']), 'all'); assert.equal(library.libraryTab('bogus'), 'all')
+  assert.equal(library.libraryTab('pdf'), 'all', 'old ?tab=pdf links show All'); assert.equal(library.libraryTab('manual'), 'all', 'old ?tab=manual links show All')
   const [handbook, map] = library.buildSources([
     { id: 'pdf', title: 'Student Handbook 2026', status: 'ready', mime_type: 'application/pdf', document_type: 'handbook', summary: 'Policies and procedures', key_topics: ['Enrollment'], updated_at: '2026-10-01T00:00:00+00:00' },
     { id: 'map', title: 'Campus Map', status: 'archived', mime_type: 'image/png', document_type: 'campus_map', summary: null, key_topics: [], updated_at: '2026-10-01T00:00:00+00:00' },
@@ -229,7 +231,7 @@ test('library tabs have safe defaults and separate sources, manual entries and a
   const manual = { kind: 'manual', id: 'm', title: 'How to contact the Registrar', status: 'published', category: 'Student Services', description: null, updatedAt: '2026-10-04T00:00:00+00:00' }
   const items = [handbook, map, manual]
   const ids = (tab, q = '') => library.filterLibrary(items, tab, q).map(i => i.id)
-  assert.deepEqual(ids('all'), ['m', 'pdf']); assert.deepEqual(ids('pdf'), ['pdf']); assert.deepEqual(ids('manual'), ['m'])
+  assert.deepEqual(ids('all'), ['m', 'pdf'])
   assert.deepEqual(ids('published'), ['m', 'pdf']); assert.deepEqual(ids('draft'), ['pdf']); assert.deepEqual(ids('archived'), ['map'])
   assert.deepEqual(ids('all', 'registrar'), ['m']); assert.deepEqual(ids('all', 'enrollment'), ['pdf'])
 })
@@ -320,4 +322,35 @@ if (process.env.CAMPUS_KB_SNAPSHOT) test('current Information-WUP sections produ
   assert(state.guides.every(g => g.status === 'draft')); assert.equal((await createDraftGuides(db, snapshot.source.id)).created, 0)
   assert.deepEqual(state.chunks, original)
   console.log(JSON.stringify({ source: snapshot.source.file_name, reusedChunks: snapshot.chunks.length, draftTopics: state.guides.map(g => ({ title: g.title, pages: topics.readGuideReference(g.source_reference).pages, steps: state.steps.filter(s => s.guideline_id === g.id).length })) }))
+})
+const order = (state) => Object.fromEntries(state.guides.map(g => [g.title, [g.source_order, g.status]]))
+test('generated sections keep the order of their topics in the PDF', async () => {
+  const { state, db, createDraftGuides } = database()
+  await createDraftGuides(db, sourceId)
+  // Chunk order: Graduation Honors (pages 1–2), Transfer (3), Leave of Absence (4). Not alphabetical.
+  assert.deepEqual(state.guides.map(g => [g.source_order, g.title]).sort((a, b) => a[0] - b[0]), [[1, 'Graduation Honors'], [2, 'Transfer'], [3, 'Leave of Absence']])
+})
+test('re-analysis follows the new PDF order, archives stale drafts and leaves admin-added sections alone', async () => {
+  const { state, db, createDraftGuides } = database()
+  await createDraftGuides(db, sourceId)
+  state.guides.push({ id: '52345678-1234-4234-8234-123456789abc', title: 'Library Hours', slug: `source-${sourceId}-section-62345678-1234-4234-8234-123456789abc`, status: 'draft', source_document_id: sourceId, source_reference: JSON.stringify({ version: 1, topic: 'library hours', chunkIds: [], pages: [2] }), source_order: null })
+  state.guides.find(g => g.title === 'Graduation Honors').status = 'published'
+  // Updated PDF: Transfer moved to the front, Leave of Absence removed.
+  state.chunks = [{ ...state.chunks[2], chunk_index: 0 }, { ...state.chunks[0], chunk_index: 1 }, { ...state.chunks[1], chunk_index: 2 }]
+  const result = await createDraftGuides(db, sourceId)
+  assert.equal(result.ok, true); assert.equal(result.created, 0); assert.equal(result.archivedStale, 1); assert.equal(result.stalePublished, 0)
+  assert.deepEqual(order(state), {
+    'Transfer': [1, 'draft'], 'Graduation Honors': [2, 'published'],
+    'Leave of Absence': [null, 'archived'], 'Library Hours': [null, 'draft'],
+  })
+  assert.equal(state.guides.length, 4, 'nothing is deleted or duplicated')
+})
+test('a Published section whose topic left the PDF stays live and is reported for review', async () => {
+  const { state, db, createDraftGuides } = database()
+  await createDraftGuides(db, sourceId)
+  state.guides.find(g => g.title === 'Leave of Absence').status = 'published'
+  state.chunks = state.chunks.slice(0, 3)
+  const result = await createDraftGuides(db, sourceId)
+  assert.equal(result.stalePublished, 1); assert.equal(result.archivedStale, 0)
+  assert.deepEqual(order(state)['Leave of Absence'], [null, 'published'])
 })

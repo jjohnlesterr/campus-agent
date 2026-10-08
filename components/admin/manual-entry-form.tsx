@@ -12,12 +12,20 @@ import { Input } from "@/components/ui/input"
 
 type Option = { id: string; name: string }
 
-export function ManualEntryForm({ categories, offices, defaultCategoryId }: { categories: Option[]; offices: Option[]; defaultCategoryId?: string }) {
+/** collectionId: the collection the entry is created in (null: Uncategorized); cancelHref leads back there. */
+export function ManualEntryForm({ categories, offices, defaultCategoryId, collectionId, cancelHref }: {
+  categories: Option[]
+  offices: Option[]
+  defaultCategoryId?: string
+  collectionId: string | null
+  cancelHref: string
+}) {
   const [state, action] = useActionState<ManualEntryState, FormData>(createManualEntry, {})
   const v = state.values ?? {}
 
   return (
     <form action={action} className="flex flex-col gap-5">
+      <input type="hidden" name="collectionId" value={collectionId ?? ""} />
       <Field id="entry-title" label="Title">
         <Input id="entry-title" name="title" defaultValue={v.title} placeholder="e.g. How to contact the Registrar" maxLength={200} required />
       </Field>
@@ -63,7 +71,7 @@ export function ManualEntryForm({ categories, offices, defaultCategoryId }: { ca
 
       <div className="flex flex-wrap gap-2 border-t pt-5">
         <PendingSubmitButton size="lg" pendingLabel="Creating…">Create entry</PendingSubmitButton>
-        <Link href="/admin/knowledge" className={buttonVariants({ variant: "ghost", size: "lg" })}>Cancel</Link>
+        <Link href={cancelHref} className={buttonVariants({ variant: "ghost", size: "lg" })}>Cancel</Link>
       </div>
     </form>
   )

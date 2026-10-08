@@ -6,10 +6,11 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
-import { namesOffice, readGuideReference } from "@/lib/knowledge/topics"
+import { namesOffice, readGuideReference, topicKey } from "@/lib/knowledge/topics"
 
 function revalidate(id?: string, documentId?: string | null) {
   for (const path of ["/admin/knowledge", "/admin", "/app/guides"]) revalidatePath(path)
+  revalidatePath("/admin/knowledge/collections/[id]", "page")
   if (id) { revalidatePath(`/admin/knowledge/${id}`); revalidatePath(`/app/guides/${id}`) }
   if (documentId) revalidatePath(`/admin/documents/${documentId}`)
 }
@@ -162,13 +163,15 @@ const manualSchema = z.object({
   referenceNote: z.string().trim().max(300),
   visibility: z.enum(["public", "authenticated"]),
   status: z.enum(["draft", "published"]),
+  // Knowledge Library collection it is created in ("" = Uncategorized).
+  collectionId: z.union([z.uuid(), z.literal("")]),
 })
 export type ManualEntryState = { error?: string; values?: Record<string, string> }
 
 /** Create manually: a knowledge section with no source file. */
 export async function createManualEntry(_previous: ManualEntryState, formData: FormData): Promise<ManualEntryState> {
   await requireAdmin()
-  const raw = Object.fromEntries(["title", "categoryId", "content", "responsibleOfficeId", "referenceNote", "visibility", "status"].map(key => [key, String(formData.get(key) ?? "")]))
+  const raw = Object.fromEntries(["title", "categoryId", "content", "responsibleOfficeId", "referenceNote", "visibility", "status", "collectionId"].map(key => [key, String(formData.get(key) ?? "")]))
   const parsed = manualSchema.safeParse(raw)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the entry fields.", values: raw }
   const values = parsed.data
@@ -177,9 +180,87 @@ export async function createManualEntry(_previous: ManualEntryState, formData: F
     title: values.title, slug: `manual-${randomUUID()}`, category_id: values.categoryId,
     description: excerpt(values.content), content: values.content,
     responsible_office_id: values.responsibleOfficeId || null, source_reference: values.referenceNote || null,
-    visibility: values.visibility, status: values.status,
+    visibility: values.visibility, status: values.status, collection_id: values.collectionId || null,
   }).select("id").single()
   if (error || !data) return { error: "The entry could not be created. Please try again.", values: raw }
   revalidate(data.id)
   redirect(`/admin/knowledge/${data.id}?created=1`)
+}
+
+// Source details page: a source's sections are listed in page order and can be edited
+// in place. These actions change only a section's title, pages and text; the full
+// editor (/admin/knowledge/[id]) still handles steps, requirements, category and office.
+
+const sectionTextSchema = z.object({
+  title: z.string().trim().min(2, "Enter a title (at least 2 characters).").max(200, "Use 200 characters or fewer for the title."),
+  content: z.string().trim().min(1, "Add the section text.").max(20000, "Keep a section under 20,000 characters."),
+  pages: z.array(z.number().int().positive("Use positive page numbers.")).max(200),
+})
+
+/** Page count recorded at extraction, when known. */
+async function sourcePageCount(db: Awaited<ReturnType<typeof createClient>>, documentId: string) {
+  const { data } = await db.from("document_chunks").select("metadata").eq("document_id", documentId).limit(1).maybeSingle()
+  return (data?.metadata as { page_count?: number } | null)?.page_count ?? null
+}
+
+function pagesError(pages: number[], pageCount: number | null) {
+  return pageCount && pages.some((page) => page > pageCount) ? `Use page numbers from the source (1–${pageCount}).` : null
+}
+
+/**
+ * Saves a section's title, pages and text. The section keeps its status: edits to a
+ * Published section are used in answers once saved (the admin saving it is the review).
+ */
+export async function saveSectionText(input: { id: string; updatedAt: string; title: string; content: string; pages: number[] }): Promise<SaveGuideResult> {
+  await requireAdmin()
+  const ids = z.object({ id: z.uuid(), updatedAt: z.iso.datetime({ offset: true }) }).safeParse(input)
+  const parsed = sectionTextSchema.safeParse(input)
+  if (!ids.success) return { ok: false, error: "Invalid section." }
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the section." }
+  const { title, content, pages } = parsed.data
+  const db = await createClient()
+  const { data: guide, error: guideError } = await db.from("guidelines").select("source_document_id, source_reference, description").eq("id", input.id).single()
+  if (guideError || !guide?.source_document_id) return { ok: false, error: "The section could not be loaded." }
+  const pageProblem = pagesError(pages, await sourcePageCount(db, guide.source_document_id))
+  if (pageProblem) return { ok: false, error: pageProblem }
+
+  const ref = readGuideReference(guide.source_reference)
+  const { data: saved, error } = await db.from("guidelines").update({
+    title, content,
+    description: guide.description?.trim() ? guide.description : excerpt(content),
+    source_reference: JSON.stringify({ version: 1, topic: ref?.topic ?? topicKey(title), chunkIds: ref?.chunkIds ?? [], pages }),
+  }).eq("id", input.id).eq("updated_at", input.updatedAt).select("id").maybeSingle()
+  revalidate(input.id, guide.source_document_id)
+  if (error) return { ok: false, error: "The section could not be saved. Please try again." }
+  return saved ? { ok: true } : { ok: false, error: "This section changed since you opened it. Reload the page before editing again." }
+}
+
+/** Adds an admin-written section to a source. It starts as Draft, like AI-extracted sections. */
+export async function addSourceSection(input: { documentId: string; title: string; content: string; pages: number[] }): Promise<SaveGuideResult> {
+  await requireAdmin()
+  const parsed = sectionTextSchema.safeParse(input)
+  if (!z.uuid().safeParse(input.documentId).success) return { ok: false, error: "Invalid source." }
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the section." }
+  const { title, content, pages } = parsed.data
+  const db = await createClient()
+  const { data: source, error: sourceError } = await db.from("documents").select("status, mime_type, visibility").eq("id", input.documentId).single()
+  if (sourceError || !source) return { ok: false, error: "The source could not be loaded." }
+  if (source.mime_type !== "application/pdf") return { ok: false, error: "Sections can only be added to PDF sources." }
+  if (source.status === "archived") return { ok: false, error: "Restore the source before adding sections." }
+  const pageProblem = pagesError(pages, await sourcePageCount(db, input.documentId))
+  if (pageProblem) return { ok: false, error: pageProblem }
+
+  // Same neutral category AI-extracted sections use (created by the first analysis if missing).
+  const { error: categoryError } = await db.from("guideline_categories").upsert({ name: "Source guides", slug: "source-guides" }, { onConflict: "slug", ignoreDuplicates: true })
+  const { data: category } = await db.from("guideline_categories").select("id").eq("slug", "source-guides").maybeSingle()
+  if (categoryError || !category) return { ok: false, error: "The section could not be created. Please try again." }
+
+  const { error } = await db.from("guidelines").insert({
+    title, content, description: excerpt(content),
+    slug: `source-${input.documentId}-section-${randomUUID()}`, category_id: category.id,
+    source_document_id: input.documentId, visibility: source.visibility, status: "draft",
+    source_reference: JSON.stringify({ version: 1, topic: topicKey(title), chunkIds: [], pages }),
+  })
+  revalidate(undefined, input.documentId)
+  return error ? { ok: false, error: "The section could not be created. Please try again." } : { ok: true }
 }

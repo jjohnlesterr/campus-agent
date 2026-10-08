@@ -3,12 +3,14 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { z } from "zod"
 
+import { MoveToCollectionButton } from "@/components/admin/collection-dialogs"
 import { GuideEditor } from "@/components/admin/guide-editor"
 import { SourcePagePreview } from "@/components/admin/source-page-preview"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { requireAdmin } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
 import { formatDate } from "@/lib/datetime"
+import { collectionHref } from "@/lib/knowledge/collections"
 import { readGuideReference } from "@/lib/knowledge/topics"
 import { createClient } from "@/lib/supabase/server"
 
@@ -19,11 +21,12 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
   const { created } = await searchParams
   if (!z.uuid().safeParse(id).success) notFound()
   const db = await createClient()
-  const [{ data: section, error }, { data: categories, error: categoryError }, { data: offices, error: officeError }, { timezone }] = await Promise.all([
-    db.from("guidelines").select("*, documents(id, title, file_name, file_path, mime_type), guideline_steps(step_number, title, description)").eq("id", id).maybeSingle(),
+  const [{ data: section, error }, { data: categories, error: categoryError }, { data: offices, error: officeError }, { timezone }, { data: collections }] = await Promise.all([
+    db.from("guidelines").select("*, documents(id, title, file_name, file_path, mime_type, collection_id, knowledge_collections(id, name)), knowledge_collections(id, name), guideline_steps(step_number, title, description)").eq("id", id).maybeSingle(),
     db.from("guideline_categories").select("id, name").order("sort_order").order("name"),
     db.from("offices").select("id, name").order("name"),
     getBranding(),
+    db.from("knowledge_collections").select("id, name").order("name"),
   ])
   if (error || categoryError || officeError) throw new Error("The section could not be loaded.")
   if (!section) notFound()
@@ -35,7 +38,10 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
   const { data: signed } = source
     ? await db.storage.from("documents").createSignedUrl(source.file_path, 60 * 60)
     : { data: null }
-  const backHref = source ? `/admin/documents/${source.id}` : "/admin/knowledge?tab=manual"
+  // A section's collection is its source's; a manual entry has its own.
+  const collectionId = source ? source.collection_id : section.collection_id
+  const collectionName = (source ? source.knowledge_collections?.name : section.knowledge_collections?.name) ?? "Uncategorized"
+  const backHref = source ? `/admin/documents/${source.id}` : collectionHref(collectionId)
 
   const editor = (
     <GuideEditor
@@ -68,12 +74,14 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
         <ol className="flex min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground">
           <li><Link href="/admin/knowledge" className="hover:text-foreground hover:underline">Knowledge Library</Link></li>
           <li aria-hidden="true"><ChevronRight className="size-3.5" /></li>
-          {source ? (
-            <li className="max-w-64 truncate"><Link href={`/admin/documents/${source.id}`} className="hover:text-foreground hover:underline">{source.title}</Link></li>
-          ) : (
-            <li><Link href="/admin/knowledge?tab=manual" className="hover:text-foreground hover:underline">Manual Entries</Link></li>
-          )}
+          <li className="max-w-64 truncate"><Link href={collectionHref(collectionId)} className="hover:text-foreground hover:underline">{collectionName}</Link></li>
           <li aria-hidden="true"><ChevronRight className="size-3.5" /></li>
+          {source && (
+            <>
+              <li className="max-w-64 truncate"><Link href={`/admin/documents/${source.id}`} className="hover:text-foreground hover:underline">{source.title}</Link></li>
+              <li aria-hidden="true"><ChevronRight className="size-3.5" /></li>
+            </>
+          )}
           <li aria-current="page" className="max-w-64 truncate font-medium text-foreground">{section.title}</li>
         </ol>
       </nav>
@@ -83,9 +91,14 @@ export default async function SectionReviewPage({ params, searchParams }: PagePr
           <h1 className="text-2xl font-semibold tracking-tight break-words">{fromSource ? "Review knowledge section" : "Manual entry"}</h1>
           <StatusBadge status={section.status} />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Last updated <time dateTime={section.updated_at}>{formatDate(section.updated_at, timezone, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</time>
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-muted-foreground">
+            Last updated <time dateTime={section.updated_at}>{formatDate(section.updated_at, timezone, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</time>
+          </p>
+          {!fromSource && (
+            <MoveToCollectionButton kind="manual" id={section.id} title={section.title} currentCollectionId={section.collection_id} collections={collections ?? []} />
+          )}
+        </div>
       </div>
       {created === "1" && <p role="status" className="mt-4 text-sm text-muted-foreground">Entry created.</p>}
 

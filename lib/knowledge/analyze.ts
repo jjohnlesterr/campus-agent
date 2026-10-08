@@ -12,7 +12,7 @@ import type { createClient } from "@/lib/supabase/server"
 type Client = Awaited<ReturnType<typeof createClient>>
 
 export type AnalysisResult =
-  | { ok: true; pages: number; created: number; skipped: number; overview: boolean }
+  | { ok: true; pages: number; created: number; skipped: number; overview: boolean; archivedStale: number; stalePublished: number }
   | { ok: false; error: string }
 
 // Analyze with AI:
@@ -22,8 +22,9 @@ export type AnalysisResult =
 // 3. Claude, best effort: an admin-only document overview, plus a category,
 //    short summary and explicitly named office for each newly created Draft.
 //
-// Nothing is published. Existing sections — Published, Draft or Archived — are
-// never modified, so re-analysis leaves current Published knowledge in place.
+// Nothing is published. Existing sections keep their content, so re-analysis leaves
+// current Published knowledge in place; their PDF order is refreshed, and Drafts whose
+// topic is no longer in the PDF are archived (lib/knowledge/generation.ts).
 
 const MAX_SECTION_CHARS = 2500
 const MAX_TOTAL_CHARS = 60_000
@@ -60,7 +61,7 @@ export async function analyzeSource(db: Client, documentId: string): Promise<Ana
   if (!generated.ok) return { ok: false, error: generated.error }
 
   const overview = await addOverview(db, source.title, documentId, generated.topics, generated.createdSections)
-  return { ok: true, pages: extracted.pages, created: generated.created, skipped: generated.skipped, overview }
+  return { ok: true, pages: extracted.pages, created: generated.created, skipped: generated.skipped, overview, archivedStale: generated.archivedStale, stalePublished: generated.stalePublished }
 }
 
 /** Claude enrichment. Failures are logged and leave the deterministic drafts as they are. */
