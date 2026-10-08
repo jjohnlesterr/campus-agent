@@ -16,6 +16,18 @@ export function homePathFor(role: Profile["role"]) {
   return role === "admin" ? "/admin" : "/app"
 }
 
+/**
+ * College / program used only to personalize (rank) results. Self-registered users
+ * set an intended college; legacy admin-provisioned accounts fall back to theirs.
+ */
+export function personalDepartmentId(profile: Pick<Profile, "intended_department_id" | "department_id">) {
+  return profile.intended_department_id ?? profile.department_id
+}
+
+export function personalProgramId(profile: Pick<Profile, "intended_program_id" | "program_id">) {
+  return profile.intended_program_id ?? profile.program_id
+}
+
 /** Where a signed-in user should go next: change a temporary password first, then home. */
 export function nextPathFor(profile: Pick<Profile, "role" | "must_change_password">) {
   return profile.must_change_password ? CHANGE_PASSWORD_PATH : homePathFor(profile.role)

@@ -1,18 +1,20 @@
 "use client"
 
-import { CircleAlert, Eye, EyeOff } from "lucide-react"
-import { useActionState, useState, useTransition } from "react"
+import { cn } from "cn"
+import { CircleAlert } from "lucide-react"
+import { useActionState, useTransition } from "react"
 
 import { login } from "@/app/(auth)/actions"
+import { PasswordInput } from "@/components/auth/password-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { pressMotion } from "@/lib/motion"
 
-// Sign-in only: accounts are provisioned by an administrator.
+// Email and password sign-in for users and admins. The role comes from the database.
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(login, undefined)
   const [, startTransition] = useTransition()
-  const [showPassword, setShowPassword] = useState(false)
   const error = state?.error
 
   return (
@@ -26,7 +28,7 @@ export function LoginForm() {
       className="flex flex-col gap-4"
     >
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">School email</Label>
+        <Label htmlFor="email">Email</Label>
         <Input
           id="email"
           name="email"
@@ -39,27 +41,13 @@ export function LoginForm() {
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">Password</Label>
-        <div className="relative">
-          <Input
-            id="password"
-            name="password"
-            type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
-            required
-            className="h-10 pr-11"
-            aria-describedby={error ? "login-error" : undefined}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            aria-pressed={showPassword}
-            aria-controls="password"
-            className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
-          </button>
-        </div>
+        <PasswordInput
+          id="password"
+          name="password"
+          autoComplete="current-password"
+          required
+          aria-describedby={error ? "login-error" : undefined}
+        />
       </div>
 
       {error && (
@@ -73,7 +61,7 @@ export function LoginForm() {
         </p>
       )}
 
-      <Button type="submit" size="lg" disabled={pending} className="mt-1 h-10 w-full">
+      <Button type="submit" size="lg" disabled={pending} className={cn("mt-1 h-10 w-full", pressMotion)}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
     </form>

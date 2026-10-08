@@ -6,6 +6,7 @@ import { changePassword } from "@/app/(auth)/actions"
 import { Field, fieldAria } from "@/components/shared/form-field"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { pressMotion } from "@/lib/motion"
 
 export function ChangePasswordForm({ email }: { email: string | null }) {
   const [state, formAction, pending] = useActionState(changePassword, undefined)
@@ -44,7 +45,7 @@ export function ChangePasswordForm({ email }: { email: string | null }) {
         </p>
       )}
 
-      <Button type="submit" size="lg" disabled={pending}>
+      <Button type="submit" size="lg" disabled={pending} className={pressMotion}>
         {pending ? "Saving…" : "Save password and continue"}
       </Button>
     </form>

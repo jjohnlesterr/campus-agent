@@ -36,6 +36,9 @@ function setup() {
     'next/navigation': { redirect: (to) => { throw new Redirect(to) } },
     '@/lib/auth': { getCurrentProfile: async () => null, nextPathFor: (p) => (p.must_change_password ? '/change-password' : p.role === 'admin' ? '/admin' : '/app') },
     '@/lib/supabase/server': { createClient: async () => supabase },
+    '@/lib/app-url': { appUrl: async () => new URL('http://localhost:3000') },
+    '@/lib/forms': load('lib/forms.ts', {}),
+    '@/lib/user-types': load('lib/user-types.ts', {}),
   })
   const submit = async (email, password) => {
     const form = new FormData()
