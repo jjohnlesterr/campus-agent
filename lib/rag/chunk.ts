@@ -2,8 +2,9 @@
 //
 // - Chunks never cross a page boundary, so every chunk has an exact page number
 //   for citations ("Student Handbook — Page 42").
-// - Section headings (e.g. "ARTICLE V", "5.3 Incomplete Grades", short ALL-CAPS
-//   lines) are detected and carried forward, across pages, as the chunk's section.
+// - Section headings (e.g. "ARTICLE V", "5.3 Incomplete Grades", "B. Registration", short ALL-CAPS
+//   lines, Markdown "## Heading" lines in text sources) are detected and carried
+//   forward, across pages, as the chunk's section.
 // - Text is split on paragraph, then sentence boundaries into ~1,500-character
 //   chunks (≈350 tokens) with a small overlap so a rule isn't cut in half.
 //   A new section heading starts a new chunk.
@@ -25,12 +26,23 @@ const SECTION_BREAK_MIN_CHARS = 300
 const HEADING_PATTERNS = [
   /^(article|chapter|section|part|rule)\s+[\divxlc]+\b.{0,80}$/i, // ARTICLE V, Section 3 …
   /^\d+(\.\d+){0,3}\.?\s+[A-Z][^.!?]{2,80}$/, // 5.3 Incomplete Grades
+  /^[A-Z]\.\s+[A-Z][^.!?]{2,80}$/, // B. Guidelines on Registration
+  /^#{1,6}\s+\S.{2,80}$/, // ## Incomplete Grades (Markdown, in text sources)
 ]
+
+// Table rows and values that look like numbered headings: "5.00 Below 75 Failed", "1.25 96–97 Very Good".
+const TABLE_ROW = /^\d+\.\d{2}\s/
+
+/** A heading line as a section label: "## Incomplete Grades" → "Incomplete Grades". */
+function sectionLabel(line: string) {
+  return line.replace(/^#{1,6}\s+/, "").replace(/\s+/g, " ")
+}
 
 function isHeading(line: string) {
   const text = line.trim()
   if (text.length < 4 || text.length > 90) return false
   if (/^[●○•▪◦■□\-–*]/.test(text)) return false // bullet items are never headings
+  if (TABLE_ROW.test(text)) return false
   if (HEADING_PATTERNS.some((p) => p.test(text))) return true
   // Short ALL-CAPS line with real words, e.g. "ACADEMIC POLICIES"
   const letters = text.replace(/[^A-Za-z]/g, "")
@@ -85,9 +97,10 @@ function overlapTail(text: string) {
   return (sentenceStart >= 0 ? tail.slice(sentenceStart + 2) : tail.slice(tail.indexOf(" ") + 1)).trim()
 }
 
-export function chunkPages(pages: string[]): TextChunk[] {
+/** initialSection: the section of text before the first heading (a text source uses its title). */
+export function chunkPages(pages: string[], { initialSection = null }: { initialSection?: string | null } = {}): TextChunk[] {
   const chunks: TextChunk[] = []
-  let section: string | null = null
+  let section: string | null = initialSection
 
   pages.forEach((raw, pageIndex) => {
     const pageNumber = pageIndex + 1
@@ -108,7 +121,7 @@ export function chunkPages(pages: string[]): TextChunk[] {
         flush()
       } else if (isHeading(line)) {
         flush()
-        section = line.replace(/\s+/g, " ")
+        section = sectionLabel(line)
         startsSection = true
         paragraph.push(line)
       } else {

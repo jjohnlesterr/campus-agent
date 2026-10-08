@@ -300,6 +300,7 @@ export type Database = {
           analyzed_at: string | null
           collection_id: string | null
           created_at: string
+          description: string | null
           document_type: Database["public"]["Enums"]["document_type"]
           effective_date: string | null
           file_name: string
@@ -309,8 +310,11 @@ export type Database = {
           key_topics: string[]
           mime_type: string
           processing_error: string | null
+          reference_label: string | null
           status: Database["public"]["Enums"]["document_status"]
           summary: string | null
+          sort_order: number | null
+          source_url: string | null
           title: string
           updated_at: string
           uploaded_by: string | null
@@ -320,6 +324,7 @@ export type Database = {
           analyzed_at?: string | null
           collection_id?: string | null
           created_at?: string
+          description?: string | null
           document_type?: Database["public"]["Enums"]["document_type"]
           effective_date?: string | null
           file_name: string
@@ -329,7 +334,10 @@ export type Database = {
           key_topics?: string[]
           mime_type: string
           processing_error?: string | null
+          reference_label?: string | null
           status?: Database["public"]["Enums"]["document_status"]
+          sort_order?: number | null
+          source_url?: string | null
           summary?: string | null
           title: string
           updated_at?: string
@@ -340,6 +348,7 @@ export type Database = {
           analyzed_at?: string | null
           collection_id?: string | null
           created_at?: string
+          description?: string | null
           document_type?: Database["public"]["Enums"]["document_type"]
           effective_date?: string | null
           file_name?: string
@@ -349,7 +358,10 @@ export type Database = {
           key_topics?: string[]
           mime_type?: string
           processing_error?: string | null
+          reference_label?: string | null
           status?: Database["public"]["Enums"]["document_status"]
+          sort_order?: number | null
+          source_url?: string | null
           summary?: string | null
           title?: string
           updated_at?: string
@@ -510,6 +522,7 @@ export type Database = {
           slug: string
           source_document_id: string | null
           source_order: number | null
+          sort_order: number | null
           source_reference: string | null
           status: Database["public"]["Enums"]["publish_status"]
           title: string
@@ -531,6 +544,7 @@ export type Database = {
           slug: string
           source_document_id?: string | null
           source_order?: number | null
+          sort_order?: number | null
           source_reference?: string | null
           status?: Database["public"]["Enums"]["publish_status"]
           title: string
@@ -552,6 +566,7 @@ export type Database = {
           slug?: string
           source_document_id?: string | null
           source_order?: number | null
+          sort_order?: number | null
           source_reference?: string | null
           status?: Database["public"]["Enums"]["publish_status"]
           title?: string
