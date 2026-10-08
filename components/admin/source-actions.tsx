@@ -1,12 +1,14 @@
 "use client"
 
-import { Archive, ArchiveRestore, ExternalLink, FileUp, FolderInput, MoreHorizontal, Trash2 } from "lucide-react"
+import { Archive, ArchiveRestore, ExternalLink, FileUp, FolderInput, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
 
 import { archiveDocument, deleteDocument, discardUnregisteredSource, replaceSourceFile, restoreDocument } from "@/app/admin/documents/actions"
 import { type CollectionOption, MoveToCollectionDialog } from "@/components/admin/collection-dialogs"
+import { EditSourceDetailsDialog } from "@/components/admin/source-details-dialog"
 import { checkSourceFile, uploadSourceFile } from "@/components/admin/source-uploader"
+import { useToast } from "@/components/shared/toast"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -14,8 +16,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 type Props = {
   id: string
   title: string
+  description: string | null
   status: string
   isPdf: boolean
+  /** Text sources have no uploaded file to view or replace. */
+  isText: boolean
   fileUrl: string | null
   publishedCount: number
   otherSectionCount: number
@@ -23,16 +28,17 @@ type Props = {
   collections: CollectionOption[]
 }
 
-type Open = "replace" | "move" | "archive" | "delete" | null
+type Open = "details" | "replace" | "move" | "archive" | "delete" | null
 
-// Source-level actions (View, Replace, Move to collection, Archive/Restore, Delete). Analyze with AI lives in
+// Source-level actions (View, Replace, Edit details, Move to collection, Archive/Restore, Delete). Analyze with AI lives in
 // the Knowledge Sections header, next to the sections it creates.
-export function SourceActions({ id, title, status, isPdf, fileUrl, publishedCount, otherSectionCount, collectionId, collections }: Props) {
+export function SourceActions({ id, title, description, status, isPdf, isText, fileUrl, publishedCount, otherSectionCount, collectionId, collections }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState<Open>(null)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const { toast, showToast } = useToast()
   const archived = status === "archived"
   const processing = status === "processing"
 
@@ -65,7 +71,7 @@ export function SourceActions({ id, title, status, isPdf, fileUrl, publishedCoun
             {isPdf ? "View PDF" : "View image"}
           </a>
         )}
-        {!archived && (
+        {!archived && !isText && (
           <Button variant="outline" size="lg" disabled={processing} onClick={() => setOpen("replace")}>
             <FileUp aria-hidden="true" />
             Replace file
@@ -76,6 +82,10 @@ export function SourceActions({ id, title, status, isPdf, fileUrl, publishedCoun
             <MoreHorizontal aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-auto min-w-44">
+            <DropdownMenuItem onClick={() => setOpen("details")}>
+              <Pencil aria-hidden="true" />
+              Edit details
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setOpen("move")}>
               <FolderInput aria-hidden="true" />
               Move to collection
@@ -101,6 +111,14 @@ export function SourceActions({ id, title, status, isPdf, fileUrl, publishedCoun
       </div>
       {notice && !open && <p role="status" className="max-w-md text-sm text-muted-foreground lg:text-right">{notice}</p>}
       {error && !open && <p role="alert" className="max-w-md text-sm text-destructive lg:text-right">{error}</p>}
+
+      <EditSourceDetailsDialog
+        source={{ id, title, description }}
+        open={open === "details"}
+        onOpenChange={(next) => setOpen(next ? "details" : null)}
+        onSaved={() => { setNotice(null); showToast("Source details updated.") }}
+      />
+      {toast}
 
       <MoveToCollectionDialog
         kind="source"

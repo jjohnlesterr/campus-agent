@@ -1,14 +1,15 @@
 "use client"
 
 import { cn } from "cn"
-import { Loader2, MoreHorizontal } from "lucide-react"
+import { GripVertical, Loader2, MoreHorizontal, TriangleAlert } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
-import { addSourceSection, deleteGuide, saveSectionText, setGuideArchived, setGuideStatuses } from "@/app/admin/knowledge/actions"
-import { AnalyzeSourceButton } from "@/components/admin/analyze-source-button"
+import { addSourceSection, deleteGuide, reorderSourceSections, saveSectionText, setGuideArchived, setGuideStatuses } from "@/app/admin/knowledge/actions"
+import { useDragOrder } from "@/components/admin/use-drag-order"
 import { textareaClass } from "@/components/shared/form-field"
+import { SourceText } from "@/components/shared/source-text"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -31,16 +32,17 @@ export function SourceSections({
   overview,
   emptyMessage,
   canAdd,
-  analysis,
+  format,
 }: {
   documentId: string
   sections: SourceSection[]
   overview: { summary: string; topics: string[] } | null
   emptyMessage: string
   canAdd: boolean
-  /** Analyze / Re-analyze with AI state; null hides the action (archived source). */
-  analysis: { analyzed: boolean; processing: boolean } | null
+  /** PDF sections cite pages; text-source sections are cited by the source title. */
+  format: "pdf" | "text"
 }) {
+  const original = format === "pdf" ? "PDF" : "text"
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<Feedback>(null)
@@ -54,6 +56,24 @@ export function SourceSections({
   const drafts = active.filter((s) => s.status === "draft")
   const published = active.length - drafts.length
   const shown = showArchived ? sections : active
+
+  // Drag-and-drop order. Hidden archived sections keep their place after the visible ones.
+  const [savingOrder, setSavingOrder] = useState(false)
+  const [orderAnnouncement, setOrderAnnouncement] = useState("")
+  const byId = new Map(sections.map((s) => [s.id, s]))
+  const drag = useDragOrder(shown.map((s) => s.id), (ids, movedId, revert) => {
+    setFeedback(null)
+    setSavingOrder(true)
+    setOrderAnnouncement(`“${byId.get(movedId)?.title ?? "Section"}” moved to position ${ids.indexOf(movedId) + 1} of ${ids.length}.`)
+    const all = showArchived ? ids : [...ids, ...archived.map((s) => s.id)]
+    const failed = (text: string) => { revert(); setFeedback({ error: true, text }) }
+    reorderSourceSections({ documentId, ids: all })
+      .then((result) => (result.ok ? router.refresh() : failed(result.error)))
+      .catch(() => failed("The new order could not be saved. Refresh the page and try again."))
+      .finally(() => setSavingOrder(false))
+  })
+  const ordered = drag.order.flatMap((id) => byId.get(id) ?? [])
+  const canReorder = !pending && editing === null && ordered.length > 1
 
   function run(action: () => Promise<Result>, success: string, after?: () => void) {
     setFeedback(null)
@@ -81,13 +101,10 @@ export function SourceSections({
         <div className="min-w-0">
           <h2 id="sections-heading" className="text-lg font-semibold">Knowledge Sections</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Extracted from this PDF. Review each section against the original, edit it if needed, then publish. Only Published sections are used by Campus Agent.
+            {format === "pdf" ? "Extracted from this PDF" : "Organized from this text"}. Review each section against the original, edit it if needed, then publish. Only Published sections are used by Campus Agent.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {analysis && (
-            <AnalyzeSourceButton id={documentId} analyzed={analysis.analyzed} processing={analysis.processing} onMessage={setFeedback} />
-          )}
           {canAdd && (
             <Button variant="outline" size="lg" disabled={pending || editing !== null} onClick={() => { setFeedback(null); setEditing("new") }}>
               Add section
@@ -98,6 +115,9 @@ export function SourceSections({
 
       <div aria-live="polite">
         {pending && <p role="status" className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving…</p>}
+        {savingOrder && !pending && <p role="status" className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving order…</p>}
+        <p className="sr-only">{orderAnnouncement}</p>
+        <p id="reorder-hint" className="sr-only">Drag a section by its handle, or focus the handle and use the Up and Down arrow keys, to change the order.</p>
         {feedback && !pending && <p role={feedback.error ? "alert" : "status"} className={cn("mt-3 text-sm", feedback.error ? "text-destructive" : "text-muted-foreground")}>{feedback.text}</p>}
       </div>
 
@@ -138,6 +158,7 @@ export function SourceSections({
               formId="new"
               heading="New section"
               initial={{ title: "", content: "", pages: [] }}
+              paged={format === "pdf"}
               pending={pending}
               onCancel={() => setEditing(null)}
               onSave={(values) => run(() => addSourceSection({ documentId, ...values }), "Section added as Draft.", () => setEditing(null))}
@@ -147,14 +168,15 @@ export function SourceSections({
           {shown.length === 0 && editing !== "new" ? (
             <p className="py-6 text-center text-sm leading-relaxed text-muted-foreground">{emptyMessage}</p>
           ) : (
-            <ol className="flex flex-col divide-y" aria-label="Knowledge sections">
-              {shown.map((section, index) => (
-                <li key={section.id} className="py-6 first:pt-0 last:pb-0">
+            <ol className="flex flex-col divide-y" aria-label="Knowledge sections" aria-describedby="reorder-hint">
+              {ordered.map((section, index) => (
+                <li key={section.id} ref={drag.itemRef(section.id)} className={cn("py-6 first:pt-0 last:pb-0", drag.dragging === section.id && "relative z-10 rounded-md bg-muted/60 shadow-sm ring-1 ring-border")}>
                   {editing === section.id ? (
                     <SectionEditor
                       formId={section.id}
                       heading={`Edit section ${index + 1}`}
                       initial={section}
+                      paged={format === "pdf"}
                       hint={section.status === "published" ? "This section is Published: your changes are used in answers as soon as you save." : undefined}
                       fullEditorId={section.steps.length + section.requirements.length > 0 ? section.id : undefined}
                       pending={pending}
@@ -164,7 +186,23 @@ export function SourceSections({
                   ) : (
                     <SectionView
                       section={section}
+                      paged={format === "pdf"}
                       number={index + 1}
+                      handle={
+                        <button
+                          type="button"
+                          aria-label={`Reorder “${section.title}”, position ${index + 1} of ${ordered.length}`}
+                          title="Drag to reorder"
+                          disabled={!canReorder}
+                          className={cn(
+                            "-ml-1.5 flex h-6 w-5 shrink-0 touch-none items-center justify-center rounded text-muted-foreground/60 outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40",
+                            drag.dragging === section.id ? "cursor-grabbing text-foreground" : "cursor-grab"
+                          )}
+                          {...drag.handleProps(section.id, !canReorder)}
+                        >
+                          <GripVertical className="size-4" aria-hidden="true" />
+                        </button>
+                      }
                       pending={pending || editing !== null}
                       onEdit={() => { setFeedback(null); setEditing(section.id) }}
                       onPublish={() => run(() => setStatuses([section.id], "published"), `“${section.title}” published.`)}
@@ -185,7 +223,7 @@ export function SourceSections({
           <DialogHeader>
             <DialogTitle>Publish {drafts.length} draft {drafts.length === 1 ? "section" : "sections"}?</DialogTitle>
             <DialogDescription>
-              Confirm you have reviewed {drafts.length === 1 ? "it" : "them"} against the original PDF. Published sections are used by Campus Agent to answer students. You can move a section back to Draft at any time.
+              Confirm you have reviewed {drafts.length === 1 ? "it" : "them"} against the original {original}. Published sections are used by Campus Agent to answer students. You can move a section back to Draft at any time.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -201,7 +239,7 @@ export function SourceSections({
         <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
           <DialogHeader>
             <DialogTitle>Delete this section?</DialogTitle>
-            <DialogDescription>“{deleting?.title}” will be permanently deleted. The original PDF is not affected. This cannot be undone.</DialogDescription>
+            <DialogDescription>“{deleting?.title}” will be permanently deleted. The original {original} is not affected. This cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" size="lg" disabled={pending} onClick={() => setDeleting(null)}>Cancel</Button>
@@ -215,9 +253,12 @@ export function SourceSections({
   )
 }
 
-function SectionView({ section, number, pending, onEdit, onPublish, onUnpublish, onArchive, onDelete }: {
+function SectionView({ section, paged, number, handle, pending, onEdit, onPublish, onUnpublish, onArchive, onDelete }: {
   section: SourceSection
+  paged: boolean
   number: number
+  /** Drag handle for reordering, shown before the title. */
+  handle: React.ReactNode
   pending: boolean
   onEdit: () => void
   onPublish: () => void
@@ -229,12 +270,13 @@ function SectionView({ section, number, pending, onEdit, onPublish, onUnpublish,
   return (
     <article aria-labelledby={`section-${section.id}`} className={cn(section.status === "archived" && "opacity-70")}>
       <div className="flex w-full items-start justify-between gap-3">
+        {handle}
         <div className="min-w-0 flex-1">
           <h3 id={`section-${section.id}`} className="font-semibold break-words">
             <span className="text-muted-foreground tabular-nums">{number}.</span> {section.title}
           </h3>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <span>{section.pageLabel}</span>
+            {paged && <span>{section.pageLabel}</span>}
             <StatusBadge status={section.status} />
           </p>
         </div>
@@ -263,8 +305,14 @@ function SectionView({ section, number, pending, onEdit, onPublish, onUnpublish,
       </div>
 
       {/* Text spans the card; on large screens it stops at ~85% so lines stay readable. */}
+      {section.tableReview && section.status !== "archived" && (
+        <p className="mt-3 flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 lg:max-w-[85%]">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          A table in this section could not be rebuilt exactly, so it is shown as the source text. Check it against the PDF before publishing.
+        </p>
+      )}
       {section.content
-        ? <p className="mt-3 leading-relaxed whitespace-pre-line break-words lg:max-w-[85%]">{section.content}</p>
+        ? <SourceText text={section.content} className="mt-3 leading-relaxed lg:max-w-[85%]" />
         : <p className="mt-3 text-sm text-muted-foreground">No text yet. Edit this section to add it.</p>}
 
       {section.requirements.length > 0 && (
@@ -285,11 +333,13 @@ function SectionView({ section, number, pending, onEdit, onPublish, onUnpublish,
   )
 }
 
-function SectionEditor({ formId, heading, initial, hint, fullEditorId, pending, onCancel, onSave }: {
+function SectionEditor({ formId, heading, initial, paged, hint, fullEditorId, pending, onCancel, onSave }: {
   /** Unique per editor, for label/input ids. */
   formId: string
   heading: string
   initial: { title: string; content: string; pages: number[] }
+  /** Show the PDF pages field (text sources have no pages). */
+  paged: boolean
   hint?: string
   /** Section id when it also has steps or requirements, which are edited in the full editor. */
   fullEditorId?: string
@@ -315,16 +365,16 @@ function SectionEditor({ formId, heading, initial, hint, fullEditorId, pending, 
   return (
     <form onSubmit={submit} aria-label={heading} className="flex flex-col gap-4 rounded-md border bg-muted/30 p-4 sm:p-5">
       <p className="text-sm font-semibold">{heading}</p>
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+      <div className={cn("grid gap-4", paged && "sm:grid-cols-[minmax(0,1fr)_10rem]")}>
         <div className="flex flex-col gap-2">
           <Label htmlFor={`section-title-${formId}`}>Title</Label>
           <Input id={`section-title-${formId}`} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required className="h-9 bg-background" autoFocus />
         </div>
-        <div className="flex flex-col gap-2">
+        {paged && <div className="flex flex-col gap-2">
           <Label htmlFor={`section-pages-${formId}`}>PDF pages</Label>
           <Input id={`section-pages-${formId}`} value={pagesText} onChange={(e) => setPagesText(e.target.value)} placeholder="e.g. 4, 5" inputMode="numeric" className="h-9 bg-background" aria-describedby={`section-pages-hint-${formId}`} />
           <p id={`section-pages-hint-${formId}`} className="text-xs text-muted-foreground">Cited in answers.</p>
-        </div>
+        </div>}
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={`section-content-${formId}`}>Text</Label>

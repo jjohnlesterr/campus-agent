@@ -16,8 +16,12 @@ export type SourceSection = {
   pageLabel: string
   /** Position of the topic in the source PDF (1 = first); null for admin-added sections. */
   sourceOrder: number | null
+  /** Position in the admin's section list (drag and drop); null before it is set. */
+  sortOrder: number | null
   steps: { title: string; description: string | null }[]
   requirements: string[]
+  /** Analysis kept a table as source text: the admin should check it against the PDF. */
+  tableReview: boolean
   updatedAt: string
   createdAt: string
 }
@@ -30,6 +34,7 @@ export type SectionRecord = {
   status: SectionStatus
   source_reference: string | null
   source_order: number | null
+  sort_order: number | null
   requirements: string[]
   created_at: string
   updated_at: string
@@ -37,13 +42,14 @@ export type SectionRecord = {
 }
 
 /**
- * Section rows in the source PDF's order (source_order). Sections without one
- * (admin-added) follow, by first cited page, then when they were added.
+ * Section rows in the admin's order (sort_order, set by drag and drop). Rows without one
+ * fall back to the source PDF's order (source_order), then first cited page, then age.
  */
 export function toSourceSections(records: SectionRecord[]): SourceSection[] {
   return records
     .map((s): SourceSection => {
-      const pages = readGuideReference(s.source_reference)?.pages ?? []
+      const reference = readGuideReference(s.source_reference)
+      const pages = reference?.pages ?? []
       return {
         id: s.id,
         title: s.title,
@@ -53,13 +59,16 @@ export function toSourceSections(records: SectionRecord[]): SourceSection[] {
         pages,
         pageLabel: pageLabel(pages),
         sourceOrder: s.source_order,
+        sortOrder: s.sort_order,
         steps: [...s.guideline_steps].sort((a, b) => a.step_number - b.step_number).map(({ title, description }) => ({ title, description })),
         requirements: s.requirements,
+        tableReview: reference?.tableReview === true,
         updatedAt: s.updated_at,
         createdAt: s.created_at,
       }
     })
     .sort((a, b) =>
+      (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) ||
       (a.sourceOrder ?? Infinity) - (b.sourceOrder ?? Infinity) ||
       (a.pages[0] ?? Infinity) - (b.pages[0] ?? Infinity) ||
       a.createdAt.localeCompare(b.createdAt))
