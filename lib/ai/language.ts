@@ -1,5 +1,5 @@
 // English vs Tagalog/Taglish, for the replies Campus Agent writes itself (not-found,
-// events, announcements). Claude-written answers follow the question's language on
+// announcements). Claude-written answers follow the question's language on
 // their own. Any common Filipino function word marks the message as Tagalog/Taglish.
 
 export type ReplyLanguage = "en" | "fil"

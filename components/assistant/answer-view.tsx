@@ -1,9 +1,10 @@
-import { ArrowRight, CircleAlert, FileText, Info, Map as MapIcon } from "lucide-react"
+import { ArrowRight, CircleAlert, ExternalLink, FileText, Info, Map as MapIcon } from "lucide-react"
 import Link from "next/link"
 
 import { SimpleMarkdown } from "@/components/assistant/simple-markdown"
 import { buttonVariants } from "@/components/ui/button"
-import type { LocationInfo, StructuredAnswer } from "@/lib/ai/answer-types"
+import type { AnswerSource, LocationInfo, StructuredAnswer } from "@/lib/ai/answer-types"
+import { safeSourceUrl } from "@/lib/announcements"
 
 /** Opens the student Campus Map, scrolled to the building when there is just one. */
 function CampusMapLink({ location }: { location?: LocationInfo }) {
@@ -18,7 +19,7 @@ function CampusMapLink({ location }: { location?: LocationInfo }) {
   )
 }
 
-/** In-app follow-up page for structured answers ("View all events"). */
+/** In-app follow-up page for structured answers ("View all announcements"). */
 function AnswerLink({ link }: { link?: StructuredAnswer["link"] }) {
   if (!link || !link.href.startsWith("/app/")) return null
   return (
@@ -26,6 +27,38 @@ function AnswerLink({ link }: { link?: StructuredAnswer["link"] }) {
       {link.label}
       <ArrowRight aria-hidden="true" />
     </Link>
+  )
+}
+
+/** The source line. Announcements with a source URL link to the original post. */
+function SourceLine({ sources }: { sources: AnswerSource[] }) {
+  if (!sources.length) return null
+  return (
+    <p className="flex items-start gap-2 border-t pt-3 text-sm text-muted-foreground">
+      <FileText className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>
+        <span className="font-medium text-foreground">Source:</span>{" "}
+        {sources.map((s, i) => {
+          const url = safeSourceUrl(s.url)
+          return (
+            <span key={i}>
+              {i > 0 && "; "}
+              {s.label}
+              {url && (
+                <>
+                  {" "}
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+                    View original source
+                    <ExternalLink className="size-3" aria-hidden="true" />
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                </>
+              )}
+            </span>
+          )
+        })}
+      </span>
+    </p>
   )
 }
 
@@ -58,6 +91,7 @@ export function AnswerView({ answer, variant = "student" }: { answer: Structured
       </div>
     )
   }
+
 
   return (
     <div className="flex flex-col gap-4">
@@ -126,15 +160,7 @@ export function AnswerView({ answer, variant = "student" }: { answer: Structured
         <p className="text-sm text-muted-foreground">{PUBLIC_CONFIRM_NOTE}</p>
       )}
 
-      {answer.sources.length > 0 && (
-        <p className="flex items-start gap-2 border-t pt-3 text-sm text-muted-foreground">
-          <FileText className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <span>
-            <span className="font-medium text-foreground">Source:</span>{" "}
-            {answer.sources.map((s) => s.label).join("; ")}
-          </span>
-        </p>
-      )}
+      <SourceLine sources={answer.sources} />
     </div>
   )
 }

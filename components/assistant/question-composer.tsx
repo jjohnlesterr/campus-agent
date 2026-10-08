@@ -17,6 +17,7 @@ export function QuestionComposer({
   busy = false,
   size = "default",
   autoFocus = false,
+  centerSuggestions = false,
 }: {
   placeholder: string
   suggestions?: string[]
@@ -26,6 +27,8 @@ export function QuestionComposer({
   busy?: boolean
   size?: "default" | "large"
   autoFocus?: boolean
+  /** Center the example-question chips under the input (public landing page). */
+  centerSuggestions?: boolean
 }) {
   const id = useId()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -112,7 +115,7 @@ export function QuestionComposer({
           type="submit"
           aria-label={busy ? "Waiting for answer" : "Ask"}
           className={cn(
-            "inline-flex shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40",
+            "inline-flex shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-[background-color,opacity,transform] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/50 enabled:cursor-pointer enabled:hover:bg-primary/90 enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none motion-reduce:enabled:active:scale-100",
             size === "large" ? "size-10" : "size-9"
           )}
           disabled={busy || !value.trim()}
@@ -134,14 +137,14 @@ export function QuestionComposer({
       </p>
 
       {suggestions.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Example questions">
+        <ul className={cn("flex flex-wrap gap-2", centerSuggestions && "mx-auto max-w-xl justify-center")} aria-label="Example questions">
           {suggestions.map((s) => (
             <li key={s}>
               <button
                 type="button"
                 onClick={() => applySuggestion(s)}
                 disabled={busy}
-                className="rounded-full border bg-background px-3 py-1.5 text-sm text-secondary-foreground transition-colors outline-none hover:border-ring/40 hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50"
+                className="rounded-full border bg-background px-3 py-1.5 text-sm text-secondary-foreground transition-[color,background-color,border-color,transform] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/40 enabled:cursor-pointer enabled:hover:border-ring/40 enabled:hover:bg-accent enabled:hover:text-accent-foreground enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:enabled:active:scale-100"
               >
                 {s}
               </button>

@@ -9,6 +9,8 @@ export type AnswerSource = {
   documentTitle: string
   pageNumber: number | null
   sectionTitle: string | null
+  /** Link to the original notice (announcements with a source URL). */
+  url?: string
 }
 
 /** Location answers: which numbered map buildings they refer to, and whether a map can be shown. */
@@ -32,7 +34,7 @@ export type StructuredAnswer = {
   sources: AnswerSource[]
   /** Present only on campus location answers. */
   location?: LocationInfo
-  /** A follow-up page for structured answers, e.g. "View all events" → /app/events. */
+  /** A follow-up page for structured answers, e.g. "View all announcements" → /app/announcements. */
   link?: { label: string; href: string }
 }
 
@@ -45,6 +47,6 @@ export function answerToMarkdown(a: StructuredAnswer) {
     parts.push(a.steps.length || a.requirements.length ? `**Good to know**\n${a.details}` : a.details)
   }
   if (a.gaps) parts.push(`**Not covered by the handbook:** ${a.gaps}`)
-  if (a.sources.length) parts.push(`Source: ${a.sources.map((s) => s.label).join("; ")}`)
+  if (a.sources.length) parts.push(`Source: ${a.sources.map((s) => (s.url ? `${s.label} (${s.url})` : s.label)).join("; ")}`)
   return parts.filter(Boolean).join("\n\n")
 }

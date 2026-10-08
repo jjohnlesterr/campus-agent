@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  CalendarDays,
   CircleHelp,
   LogOut,
   Map as MapIcon,
@@ -24,7 +23,6 @@ import { cn } from "cn"
 // legend, and /app/offices and the office records remain available.
 const NAV = [
   { href: "/app/guides", label: "School Guides", icon: BookOpen },
-  { href: "/app/events", label: "Events", icon: CalendarDays },
   { href: "/app/announcements", label: "Announcements", icon: Megaphone },
   { href: "/app/map", label: "Campus Map", icon: MapIcon },
   { href: "/app/how-it-works", label: "How It Works", icon: CircleHelp },
@@ -141,7 +139,7 @@ function SidebarContent({
         </Link>
       </div>
 
-      <nav aria-label="Student" className="mt-3 px-3">
+      <nav aria-label="Main" className="mt-3 px-3">
         <ul className="flex flex-col gap-0.5">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`)

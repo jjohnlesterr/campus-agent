@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/shared/page-header"
 const PROMISES = [
   {
     title: "Verified sources first",
-    body: "Answers come from the student handbook, guides reviewed by university staff, and the official office directory.",
+    body: "Answers come from the university handbook, knowledge reviewed by university staff, and the official office directory.",
   },
   {
     title: "Honest about gaps",

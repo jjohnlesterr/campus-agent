@@ -146,7 +146,7 @@ export function ChatView({
         <div className="mx-auto max-w-3xl">
           <QuestionComposer placeholder={`Ask a follow-up question…`} onAsk={ask} busy={busy} />
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            Answers come from the official student handbook. Confirm important details with the responsible office.
+            Answers come from published university sources. Confirm important details with the responsible office.
           </p>
         </div>
       </div>

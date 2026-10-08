@@ -16,6 +16,8 @@ export type KnowledgePassage = {
   rank: number
   /** e.g. "Student Handbook — Page 42", "Student Handbook — Pages 4, 5" */
   sourceLabel: string
+  /** Original notice link (announcement passages only). */
+  url?: string
 }
 
 /**
