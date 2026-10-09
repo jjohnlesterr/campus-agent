@@ -22,6 +22,10 @@ export type Database = {
           department_id: string | null
           expires_at: string | null
           id: string
+          image_url: string | null
+          image_position_x: number
+          image_position_y: number
+          sort_order: number | null
           publish_at: string
           source: string | null
           source_url: string | null
@@ -37,6 +41,10 @@ export type Database = {
           department_id?: string | null
           expires_at?: string | null
           id?: string
+          image_url?: string | null
+          image_position_x?: number
+          image_position_y?: number
+          sort_order?: number | null
           publish_at?: string
           source?: string | null
           source_url?: string | null
@@ -52,6 +60,10 @@ export type Database = {
           department_id?: string | null
           expires_at?: string | null
           id?: string
+          image_url?: string | null
+          image_position_x?: number
+          image_position_y?: number
+          sort_order?: number | null
           publish_at?: string
           source?: string | null
           source_url?: string | null
@@ -234,6 +246,14 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          cover_image_url: string | null
+          cover_position_x: number
+          cover_position_y: number
+          description: string | null
+          facebook_url: string | null
+          is_published: boolean
+          logo_url: string | null
+          sort_order: number | null
         }
         Insert: {
           code: string
@@ -241,6 +261,14 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
+          cover_image_url?: string | null
+          cover_position_x?: number
+          cover_position_y?: number
+          description?: string | null
+          facebook_url?: string | null
+          is_published?: boolean
+          logo_url?: string | null
+          sort_order?: number | null
         }
         Update: {
           code?: string
@@ -248,6 +276,14 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+          cover_image_url?: string | null
+          cover_position_x?: number
+          cover_position_y?: number
+          description?: string | null
+          facebook_url?: string | null
+          is_published?: boolean
+          logo_url?: string | null
+          sort_order?: number | null
         }
         Relationships: []
       }
@@ -867,6 +903,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deactivated_at: string | null
           department_id: string | null
           email: string | null
           full_name: string | null
@@ -885,6 +922,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deactivated_at?: string | null
           department_id?: string | null
           email?: string | null
           full_name?: string | null
@@ -903,6 +941,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deactivated_at?: string | null
           department_id?: string | null
           email?: string | null
           full_name?: string | null
@@ -951,28 +990,31 @@ export type Database = {
       }
       programs: {
         Row: {
-          code: string
+          code: string | null
           created_at: string
           department_id: string
           id: string
           name: string
           updated_at: string
+          sort_order: number | null
         }
         Insert: {
-          code: string
+          code?: string | null
           created_at?: string
           department_id: string
           id?: string
           name: string
           updated_at?: string
+          sort_order?: number | null
         }
         Update: {
-          code?: string
+          code?: string | null
           created_at?: string
           department_id?: string
           id?: string
           name?: string
           updated_at?: string
+          sort_order?: number | null
         }
         Relationships: [
           {
@@ -998,6 +1040,10 @@ export type Database = {
           university_name: string | null
           university_short_name: string | null
           updated_at: string
+          university_logo_url: string | null
+          app_logo_url: string | null
+          response_language: string
+          show_source_references: boolean
         }
         Insert: {
           assistant_name?: string
@@ -1012,6 +1058,10 @@ export type Database = {
           university_name?: string | null
           university_short_name?: string | null
           updated_at?: string
+          university_logo_url?: string | null
+          app_logo_url?: string | null
+          response_language?: string
+          show_source_references?: boolean
         }
         Update: {
           assistant_name?: string
@@ -1026,6 +1076,10 @@ export type Database = {
           university_name?: string | null
           university_short_name?: string | null
           updated_at?: string
+          university_logo_url?: string | null
+          app_logo_url?: string | null
+          response_language?: string
+          show_source_references?: boolean
         }
         Relationships: [
           {
@@ -1107,7 +1161,7 @@ export type Database = {
         | "department"
         | "campus"
         | "emergency"
-      app_role: "student" | "admin"
+      app_role: "user" | "admin"
       content_visibility: "public" | "authenticated"
       document_status:
         | "uploaded"
@@ -1271,7 +1325,7 @@ export const Constants = {
         "campus",
         "emergency",
       ],
-      app_role: ["student", "admin"],
+      app_role: ["user", "admin"],
       content_visibility: ["public", "authenticated"],
       document_status: [
         "uploaded",
