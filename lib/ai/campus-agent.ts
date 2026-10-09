@@ -8,6 +8,8 @@ import { type AnswerSource, type StructuredAnswer, answerToMarkdown } from "@/li
 import { CLAUDE_MODEL, getAnthropic } from "@/lib/ai/anthropic"
 import { type GuardrailCategory, classifyMessage } from "@/lib/ai/guardrail"
 import { type ReplyLanguage, detectLanguage } from "@/lib/ai/language"
+import { getAiPreferences } from "@/lib/ai/preferences"
+import { ANNOUNCEMENT_SCOPE_CODES } from "@/lib/announcement-scopes"
 import { PERSONAL_RECORD_MESSAGE, publicScopeReply } from "@/lib/ai/public-scope"
 import { expandQuery } from "@/lib/ai/query-expansion"
 import { announcementTopics, detectAnnouncementQuestion } from "@/lib/campus/announcement-match"
@@ -17,6 +19,7 @@ import { locationNotFound, lookupBuildingContents, lookupLegend, lookupLocation 
 import { answerProgramsQuestion, getDepartmentCodes } from "@/lib/campus/programs"
 import { detectProgramsQuestion } from "@/lib/campus/programs-match"
 import { createPublicClient } from "@/lib/supabase/public"
+import { createClient } from "@/lib/supabase/server"
 import type { DbClient } from "@/lib/supabase/types"
 import { type KnowledgePassage, searchKnowledge } from "@/lib/rag/search"
 
@@ -108,11 +111,22 @@ function sourcesBlock(passages: KnowledgePassage[]) {
   return `<sources>\n${items.join("\n")}\n</sources>`
 }
 
+/**
+ * Admin › Settings › AI preferences apply to every answer: the default reply language
+ * ("auto" follows the question) and whether source references are shown.
+ */
 export async function answerQuestion(question: string, { audience = "student" }: { audience?: AnswerAudience } = {}): Promise<CampusAgentAnswer> {
-  const q = question.trim().slice(0, 1000)
   const isPublic = audience === "public"
   // Public answers never use the visitor's session, even if they are signed in.
   const db: DbClient | undefined = isPublic ? createPublicClient() : undefined
+  const preferences = await getAiPreferences(db)
+  const result = await answer(question, isPublic, db, preferences.responseLanguage === "auto" ? null : preferences.responseLanguage)
+  if (preferences.showSourceReferences || !result.sources.length) return result
+  return { ...result, sources: [], text: answerToMarkdown({ ...result, sources: [] }) }
+}
+
+async function answer(question: string, isPublic: boolean, db: DbClient | undefined, fixedLanguage: ReplyLanguage | null): Promise<CampusAgentAnswer> {
+  const q = question.trim().slice(0, 1000)
 
   // Obvious non-questions are answered here, before any retrieval or Claude call.
   const guard = classifyMessage(q)
@@ -122,7 +136,7 @@ export async function answerQuestion(question: string, { audience = "student" }:
     return { ...answer, text: guard.response, retrieved: [], handledLocally: true, guardrail: guard.category }
   }
 
-  const language = detectLanguage(q)
+  const language = fixedLanguage ?? detectLanguage(q)
 
   if (isPublic) {
     // Campus Agent has no access to anyone's own record ("my grades", "balance ko").
@@ -130,20 +144,23 @@ export async function answerQuestion(question: string, { audience = "student" }:
       const answer: StructuredAnswer = { status: "not_found", summary: PERSONAL_RECORD_MESSAGE, steps: [], requirements: [], details: "", gaps: "", sources: [] }
       return { ...answer, text: PERSONAL_RECORD_MESSAGE, retrieved: [], handledLocally: true, guardrail: "personal_record" }
     }
-    try {
-      const programsQuestion = detectProgramsQuestion(q, await getDepartmentCodes(db))
-      if (programsQuestion && db) {
-        const programs = await answerProgramsQuestion(programsQuestion, language, db)
-        return { ...programs, text: answerToMarkdown(programs), retrieved: [] }
-      }
-    } catch (error) {
-      console.error("Campus Agent: programs lookup failed", error instanceof Error ? error.message : error)
+  }
+
+  // "What programs does CECT offer?" — Published departments and programs (Admin › Departments).
+  try {
+    const client = db ?? (await createClient())
+    const programsQuestion = detectProgramsQuestion(q, await getDepartmentCodes(client))
+    if (programsQuestion) {
+      const programs = await answerProgramsQuestion(programsQuestion, language, client, { linkToList: !isPublic })
+      return { ...programs, text: answerToMarkdown(programs), retrieved: [] }
     }
+  } catch (error) {
+    console.error("Campus Agent: programs lookup failed", error instanceof Error ? error.message : error)
   }
 
   // Current notices come from Published announcements (structured records).
   try {
-    const announcementQuestion = detectAnnouncementQuestion(q)
+    const announcementQuestion = detectAnnouncementQuestion(q, ANNOUNCEMENT_SCOPE_CODES)
     if (announcementQuestion) {
       // The full list is in the signed-in app; public visitors get the answer only.
       const announcements = await answerAnnouncementQuestion(announcementQuestion, language, { client: db, linkToList: !isPublic })
@@ -185,10 +202,10 @@ export async function answerQuestion(question: string, { audience = "student" }:
   } catch (error) {
     console.error("Campus Agent: map legend lookup failed", error instanceof Error ? error.message : error)
   }
-  if (!locationQuestion) return answerFromHandbook(q, language, db)
+  if (!locationQuestion) return answerFromHandbook(q, language, db, fixedLanguage !== null)
 
   // Not on the map legend: the handbook may still cover it ("Where is the ID validated?").
-  const fromHandbook = await answerFromHandbook(q, language, db)
+  const fromHandbook = await answerFromHandbook(q, language, db, fixedLanguage !== null)
   if (fromHandbook.status !== "not_found") return fromHandbook
   try {
     const notFound = await locationNotFound(locationQuestion, db)
@@ -198,7 +215,8 @@ export async function answerQuestion(question: string, { audience = "student" }:
   }
 }
 
-async function answerFromHandbook(q: string, language: ReplyLanguage, db?: DbClient): Promise<CampusAgentAnswer> {
+/** `fixedLanguage`: Admin › Settings sets the reply language, instead of following the question. */
+async function answerFromHandbook(q: string, language: ReplyLanguage, db?: DbClient, fixedLanguage = false): Promise<CampusAgentAnswer> {
   // Current announcements on the question's topic come first; then Knowledge Library
   // sections, searched with English handbook terms added (Claude still sees the original question).
   const [notices, knowledge] = await Promise.all([
@@ -219,7 +237,7 @@ async function answerFromHandbook(q: string, language: ReplyLanguage, db?: DbCli
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       output_config: { effort: "low", format: zodOutputFormat(AnswerSchema) },
-      messages: [{ role: "user", content: `${sourcesBlock(passages)}\n\n<question>\n${q}\n</question>` }],
+      messages: [{ role: "user", content: `${sourcesBlock(passages)}\n\n<question>\n${q}\n</question>${fixedLanguage ? `\n\n<reply_language>Write the answer in ${language === "fil" ? "Filipino (Tagalog)" : "English"}, whatever language the question uses. Keep official names exactly as written in the sources.</reply_language>` : ""}` }],
     })
 
     const parsed = response.parsed_output

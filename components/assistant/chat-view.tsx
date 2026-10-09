@@ -99,6 +99,7 @@ export function ChatView({
               autoFocus
               placeholder={`Ask ${assistantName}…`}
               suggestions={suggestions}
+              centerSuggestions="full"
               onAsk={ask}
               busy={busy}
             />

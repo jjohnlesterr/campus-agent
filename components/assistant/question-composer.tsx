@@ -27,8 +27,12 @@ export function QuestionComposer({
   busy?: boolean
   size?: "default" | "large"
   autoFocus?: boolean
-  /** Center the example-question chips under the input (public landing page). */
-  centerSuggestions?: boolean
+  /**
+   * Center the example-question chips under the input: true / "narrow" (public landing page)
+   * keeps them in a 36rem column; "full" (New conversation) uses the composer width, so six
+   * chips wrap into about two balanced rows.
+   */
+  centerSuggestions?: boolean | "narrow" | "full"
 }) {
   const id = useId()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -137,14 +141,24 @@ export function QuestionComposer({
       </p>
 
       {suggestions.length > 0 && (
-        <ul className={cn("flex flex-wrap gap-2", centerSuggestions && "mx-auto max-w-xl justify-center")} aria-label="Example questions">
+        <ul
+          className={cn(
+            "flex flex-wrap gap-x-2 gap-y-2",
+            centerSuggestions && "mx-auto justify-center",
+            (centerSuggestions === true || centerSuggestions === "narrow") && "max-w-xl",
+            // "full": on desktop, up to 780px — wider than the input — centered on it, so the six
+            // chips fit two rows of three. Never wider than the area beside the 16rem sidebar.
+            centerSuggestions === "full" && "lg:relative lg:left-1/2 lg:w-[min(780px,calc(100vw-16rem-2rem))] lg:max-w-none lg:-translate-x-1/2"
+          )}
+          aria-label="Example questions"
+        >
           {suggestions.map((s) => (
             <li key={s}>
               <button
                 type="button"
                 onClick={() => applySuggestion(s)}
                 disabled={busy}
-                className="rounded-full border bg-background px-3 py-1.5 text-sm text-secondary-foreground transition-[color,background-color,border-color,transform] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/40 enabled:cursor-pointer enabled:hover:border-ring/40 enabled:hover:bg-accent enabled:hover:text-accent-foreground enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:enabled:active:scale-100"
+                className="rounded-full border bg-background px-3 py-1.5 text-sm text-secondary-foreground transition-[color,background-color,border-color,transform] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/40 enabled:cursor-pointer enabled:hover:border-primary/35 enabled:hover:bg-primary/5 enabled:hover:text-primary enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none motion-reduce:enabled:active:scale-100"
               >
                 {s}
               </button>
