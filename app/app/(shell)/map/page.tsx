@@ -1,8 +1,10 @@
-import { ExternalLink, Map as MapIcon } from "lucide-react"
+import { Map as MapIcon } from "lucide-react"
 
 import { CampusDirectory } from "@/components/student/campus-directory"
+import { CampusMapViewer } from "@/components/student/campus-map-viewer"
 import { PageHeader } from "@/components/shared/page-header"
 import { requireProfile } from "@/lib/auth"
+import { directorySearchTerms } from "@/lib/campus/directory-search"
 import { getActiveCampusMap, getCampusDirectory } from "@/lib/campus/locations"
 import { createClient } from "@/lib/supabase/server"
 
@@ -32,19 +34,7 @@ export default async function CampusMapPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
         <div className="flex flex-col gap-4 lg:sticky lg:top-6">
           {signed?.signedUrl ? (
-            <figure className="overflow-hidden rounded-lg border bg-background">
-              <a href={signed.signedUrl} target="_blank" rel="noreferrer" className="block outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from private storage */}
-                <img src={signed.signedUrl} alt="Official campus map with numbered buildings and legend" className="h-auto w-full" />
-              </a>
-              <figcaption className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-xs text-muted-foreground">
-                Official campus map
-                <a href={signed.signedUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-                  <ExternalLink className="size-3.5" aria-hidden="true" />
-                  Open full size
-                </a>
-              </figcaption>
-            </figure>
+            <CampusMapViewer src={signed.signedUrl} />
           ) : (
             <section aria-label="Campus map" className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/40 p-6 text-center">
               <MapIcon className="size-6 text-muted-foreground" aria-hidden="true" />
@@ -69,7 +59,7 @@ export default async function CampusMapPage() {
         </div>
 
         {buildings.length > 0 ? (
-          <CampusDirectory buildings={buildings} />
+          <CampusDirectory buildings={buildings} searchTerms={await directorySearchTerms(supabase, buildings)} />
         ) : (
           <p className="text-sm text-muted-foreground">No buildings have been added yet.</p>
         )}

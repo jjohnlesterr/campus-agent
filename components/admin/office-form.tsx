@@ -80,7 +80,7 @@ export function OfficeForm({
         <Button type="submit" size="lg" disabled={pending}>
           {pending ? "Saving…" : values.id ? "Save changes" : "Create office"}
         </Button>
-        <Link href="/admin/offices" className={buttonVariants({ variant: "ghost", size: "lg" })}>
+        <Link href="/admin/offices" className={buttonVariants({ variant: "outline", size: "lg" })}>
           Cancel
         </Link>
       </div>

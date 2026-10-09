@@ -225,8 +225,12 @@ function BuildingRow({ building, open, hits, disabled, onToggle, onEdit, onArchi
             <BuildingSummary building={building} />
           </div>
         )}
-        <div className="flex shrink-0 items-center gap-0.5">
-          {building.isActive && <Button variant="ghost" size="sm" disabled={disabled} onClick={onEdit}>Edit<span className="sr-only"> Building {building.number}</span></Button>}
+        {/* Fixed slots (Edit, menu, chevron) so the controls line up in one column on every
+            row; an archived row (no Edit) or a row with nothing to expand keeps an empty slot. */}
+        <div className="grid shrink-0 grid-cols-[3rem_1.75rem_1.75rem] items-center justify-items-end gap-0.5">
+          {building.isActive
+            ? <Button variant="ghost" size="sm" disabled={disabled} onClick={onEdit}>Edit<span className="sr-only"> Building {building.number}</span></Button>
+            : <span aria-hidden="true" />}
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`More actions for Building ${building.number}`} disabled={disabled} />}>
               <MoreHorizontal aria-hidden="true" />
@@ -282,13 +286,13 @@ function BuildingSummary({ building }: { building: DirectoryBuilding }) {
         <span className="text-[0.6rem] font-medium tracking-wide text-muted-foreground uppercase">Bldg</span>
         <span className="mt-0.5 text-sm font-semibold tabular-nums">{building.number}</span>
       </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span id={`building-${building.id}`} className="block truncate font-medium">
           <span className="sr-only">Building {building.number}: </span>
           {building.name}
           {!building.isActive && <span className="ml-2 align-middle"><StatusBadge status="archived" /></span>}
         </span>
-        <span className="block text-xs text-muted-foreground">{describeBuildingContents(building)}</span>
+        <span className="block truncate text-xs text-muted-foreground">{describeBuildingContents(building)}</span>
       </span>
     </>
   )

@@ -13,7 +13,7 @@ import { normalize } from "@/lib/campus/location-match"
 import { getActiveCampusMap, getCampusDirectory } from "@/lib/campus/locations"
 import { createClient } from "@/lib/supabase/server"
 
-// Admin › Campus Information › Campus Map.
+// Admin › Campus Content › Campus Map.
 // The map image is the visual reference only (stored for this module, not a Knowledge
 // Library source); the legend and the Buildings & Locations directory are structured
 // records that answer location questions.
@@ -59,7 +59,7 @@ export default async function AdminCampusMapPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <a href={signed.signedUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline" })}>
+              <a href={signed.signedUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}>
                 <ExternalLink aria-hidden="true" />
                 View full size
               </a>
