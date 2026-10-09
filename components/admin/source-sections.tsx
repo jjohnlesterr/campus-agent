@@ -311,6 +311,12 @@ function SectionView({ section, paged, number, handle, pending, onEdit, onPublis
           A table in this section could not be rebuilt exactly, so it is shown as the source text. Check it against the PDF before publishing.
         </p>
       )}
+      {section.procedureReview && section.status !== "archived" && (
+        <p className="mt-3 flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 lg:max-w-[85%]">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          A numbered procedure in this section may be incomplete or out of order in the extracted text. It is shown exactly as extracted; check it against the source before publishing.
+        </p>
+      )}
       {section.content
         ? <SourceText text={section.content} className="mt-3 leading-relaxed lg:max-w-[85%]" />
         : <p className="mt-3 text-sm text-muted-foreground">No text yet. Edit this section to add it.</p>}

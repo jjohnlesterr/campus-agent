@@ -220,7 +220,7 @@ export function GuideEditor({ values, fromSource, paged, backHref, categories, o
             <Button type="submit" variant="outline" size="lg" disabled={pending}>{busy === "draft" && pending ? "Saving…" : "Save as Draft"}</Button>
           </>
         )}
-        <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "lg" })}>Cancel</Link>
+        <Link href={backHref} className={buttonVariants({ variant: "outline", size: "lg" })}>Cancel</Link>
         {!published && (
           <Button type="button" variant="ghost" size="lg" className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={pending} onClick={() => setConfirmDelete(true)}>
             <Trash2 aria-hidden="true" />Delete

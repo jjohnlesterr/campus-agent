@@ -15,6 +15,8 @@ export type GenerationResult =
       outlined: boolean
       /** Sections with a table kept as source text because it could not be rebuilt faithfully. */
       tableReviews: number
+      /** Sections with a numbered procedure that looks malformed or cut off, kept as source text for review. */
+      procedureReviews: number
       /** Re-analysis: unedited AI Drafts whose topic is no longer in the PDF (archived, not deleted). */
       archivedStale: number
       /** Re-analysis: admin-edited Drafts whose topic is no longer in the PDF (kept as they are, for review). */
@@ -97,7 +99,15 @@ export async function createDraftGuides(db: Client, documentId: string, outline:
   let refreshed = 0
   for (const { topic, current } of refreshable) {
     const row = rowFor(topic, categoryId!)
-    if (current.title === row.title && current.content === row.content) continue // unchanged text
+    if (current.title === row.title && current.content === row.content) {
+      // Unchanged text: only drop Steps an earlier analysis copied from it, and update review flags.
+      const { error: clearError } = await db.from("guideline_steps").delete().eq("guideline_id", current.id)
+      const { error } = !clearError && current.source_reference !== row.source_reference
+        ? await db.from("guidelines").update({ source_reference: row.source_reference }).eq("id", current.id).eq("status", "draft")
+        : { error: clearError }
+      if (error) return { ok: false, error: "Draft sections could not be refreshed. Try again; edited and Published sections were not changed." }
+      continue
+    }
     // Category, office and summary are re-suggested by the AI enrichment that follows.
     const { error } = await db.from("guidelines").update({
       title: row.title, description: row.description, requirements: row.requirements, content: row.content,
@@ -134,7 +144,7 @@ export async function createDraftGuides(db: Client, documentId: string, outline:
   }
   const placed = await placeNewSections(db, documentId, existing ?? [], createdSections.filter(c => !(existing ?? []).some(e => e.id === c.id)), order)
   if (!placed.ok) return { ok: false, created, error: placed.error }
-  return { ok: true, created, refreshed, outlined: outlined.length > 0, tableReviews: topics.filter(t => t.tableReview).length, skipped: topics.length - created - refreshed, topics, createdSections, archivedStale, staleEdited, stalePublished }
+  return { ok: true, created, refreshed, outlined: outlined.length > 0, tableReviews: topics.filter(t => t.tableReview).length, procedureReviews: topics.filter(t => t.procedureReview).length, skipped: topics.length - created - refreshed, topics, createdSections, archivedStale, staleEdited, stalePublished }
 }
 
 /** Stable slug of an AI-extracted section: one per source topic. */

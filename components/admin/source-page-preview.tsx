@@ -15,7 +15,7 @@ export function SourcePagePreview({ url, title, fileName, pages }: { url: string
           <span className="text-muted-foreground">Original source: </span>
           <span className="font-medium">{fileName} — Page {page}</span>
         </p>
-        <a href={src} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+        <a href={src} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
           Open in new tab <ExternalLink className="size-3.5" aria-hidden="true" />
         </a>
       </div>

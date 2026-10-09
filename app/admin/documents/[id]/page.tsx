@@ -109,7 +109,7 @@ export default async function SourceDetailPage({ params }: PageProps<"/admin/doc
               <div className="min-w-0">
                 <dt className="text-xs text-muted-foreground">Original</dt>
                 <dd className="mt-0.5 truncate">
-                  <a href={doc.source_url} target="_blank" rel="noreferrer" className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" title={doc.source_url}>Open original source</a>
+                  <a href={doc.source_url} target="_blank" rel="noopener noreferrer" className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" title={doc.source_url}>Open original source</a>
                 </dd>
               </div>
             )}

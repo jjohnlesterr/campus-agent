@@ -21,6 +21,8 @@ export type GuideTopic = {
   steps: GuideStep[]
   /** A table in the topic could not be rebuilt faithfully; it is kept as source text for review. */
   tableReview?: boolean
+  /** A numbered procedure in the topic looks malformed or cut off; it is kept as source text for review. */
+  procedureReview?: boolean
 }
 
 export function cleanTopicTitle(title: string) {
@@ -38,6 +40,8 @@ const referenceSchema = z.object({
   contentHash: z.string().optional(),
   /** Set by Analyze with AI when a table was kept as source text: check it against the PDF. */
   tableReview: z.boolean().optional(),
+  /** Set by Analyze with AI when a numbered procedure looks malformed or cut off: check it against the source. */
+  procedureReview: z.boolean().optional(),
 })
 export type GuideReference = z.infer<typeof referenceSchema>
 export function readGuideReference(value: string | null): GuideReference | null {
@@ -53,7 +57,7 @@ export function referenceLabel(value: string | null) {
   return value ?? "Source reference not recorded"
 }
 export function topicReference(topic: GuideTopic): GuideReference {
-  return { version: 1, topic: topic.key, chunkIds: topic.sections.map(s => s.id), pages: topic.pages, ...(topic.tableReview && { tableReview: true }) }
+  return { version: 1, topic: topic.key, chunkIds: topic.sections.map(s => s.id), pages: topic.pages, ...(topic.tableReview && { tableReview: true }), ...(topic.procedureReview && { procedureReview: true }) }
 }
 
 const sortedPages = (pages: (number | null)[]) => [...new Set(pages.filter((p): p is number => !!p))].sort((a, b) => a - b)
@@ -73,35 +77,50 @@ export function joinChunks(contents: string[]) {
   }, "")
 }
 
-// Steps are only taken from a numbered list the source itself labels as steps or a
-// procedure ("Procedure: 1. … 2. …"). Numbered policy rules are not a sequence of steps,
-// and no "Steps" label is invented for them.
-function numberedSteps(content: string): GuideStep[] {
-  const label = content.match(/\b(?:steps|procedures?)\s*:/i)
-  if (!label) return []
-  content = content.slice(label.index! + label[0].length)
-  const matches = [...content.matchAll(/(?:^|\s)(\d+)\.\s+(?=[A-Z])/g)]
-  const start = matches.findIndex(m => m[1] === "1")
-  if (start < 0) return []
-  const sequence = matches.slice(start)
-  if (sequence.length < 2 || sequence.some((m, i) => Number(m[1]) !== i + 1)) return []
-  return sequence.map((m, i) => {
-    const from = m.index! + m[0].length
-    const segment = content.slice(from, sequence[i + 1]?.index ?? content.length).trim()
-    // A numbered instruction ends at its first sentence; trailing policy stays in the evidence.
-    const sentence = segment.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? segment
-    return { title: sentence.slice(0, 200), description: sentence.length > 200 ? sentence : "" }
+// A procedure the source states itself (a heading or label such as "Procedures for
+// Hearing Complaints", "the following steps:", "Guidelines", followed by a numbered list)
+// already sits, in order and in the source's own wording, in the section's verbatim
+// content. Analysis therefore never copies it into a separate Steps block: that would
+// repeat the same facts, and shortened copies lose text. Steps are never derived from
+// prose either, since that cannot be done without rewording the source.
+const PROCEDURE_LABEL = /\b(?:steps|procedures?|process(?:es)?|guidelines|workflow)\b/i
+
+/**
+ * True when an explicit numbered procedure looks malformed or cut off in the extracted
+ * text: the numbering skips or repeats, an item ends mid-sentence before the next one,
+ * or an item leaves a parenthesis open ("five (5"). The text is kept as it is and the
+ * section is flagged so an admin checks it against the source; nothing is filled in.
+ */
+export function procedureNeedsReview(content: string) {
+  const label = content.match(PROCEDURE_LABEL)
+  if (!label) return false
+  const text = content.slice(label.index!)
+  const items = [...text.matchAll(/^[ \t]*(\d{1,2})[.)][ \t]+\S/gm)]
+  const first = items.findIndex(m => m[1] === "1")
+  if (first < 0) return false
+  const list = items.slice(first)
+  if (list.length < 2) return false
+  return list.some((item, i) => {
+    const number = Number(item[1])
+    // A later list may start again at 1; any other break in the numbering is suspect.
+    if (i > 0 && number !== 1 && number !== Number(list[i - 1][1]) + 1) return true
+    const segment = text.slice(item.index!, list[i + 1]?.index ?? text.length).trim()
+    if ((segment.match(/\(/g)?.length ?? 0) > (segment.match(/\)/g)?.length ?? 0)) return true
+    if (i === list.length - 1) return false // the last item may run into the text that follows
+    const lastLine = segment.split("\n").at(-1)!.trim()
+    return !/^[•▪◦·\-–*]/.test(lastLine) && !/[.!?:;)"”’]$/.test(lastLine)
   })
 }
 
-/** Description, steps and requirements, taken only from the topic's own verbatim text. */
+/** Description and requirements, taken only from the topic's own verbatim text. */
 function finishTopic(topic: GuideTopic, heading: string | null): GuideTopic {
   // Drop the heading when present; everything else is a verbatim excerpt.
   const at = heading ? topic.content.indexOf(heading) : -1
   const body = (at >= 0 ? topic.content.slice(at + heading!.length) : topic.content).replace(/\s+/g, " ").trim()
   const excerpt = body.length > 360 ? `${body.slice(0, 357).trimEnd()}…` : body
   topic.description = topic.parent ? `Under “${topic.parent}”. ${excerpt}`.trim() : excerpt
-  topic.steps = numberedSteps(topic.content)
+  topic.steps = []
+  if (procedureNeedsReview(topic.content)) topic.procedureReview = true
   const explicit = topic.content.match(/\bRequirements:\s*([\s\S]+)/i)?.[1]
   topic.requirements = explicit ? explicit.split(/[??•]/).map(s => s.trim()).filter(Boolean) : []
   return topic

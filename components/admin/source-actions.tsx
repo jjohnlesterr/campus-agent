@@ -66,7 +66,7 @@ export function SourceActions({ id, title, description, status, isPdf, isText, f
     <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
       <div className="flex flex-wrap gap-2">
         {fileUrl && (
-          <a href={fileUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline", size: "lg" })}>
+          <a href={fileUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "lg" })}>
             <ExternalLink aria-hidden="true" />
             {isPdf ? "View PDF" : "View image"}
           </a>

@@ -47,6 +47,7 @@ export function AnalyzeSourceButton({ id, format, analyzed, processing }: {
         const sections = result.created === 1 ? "1 new Draft section" : `${result.created} new Draft sections`
         const refreshed = result.refreshed ? ` ${result.refreshed} unedited draft ${result.refreshed === 1 ? "section was" : "sections were"} updated from ${where}.` : ""
         const tables = result.tableReviews ? ` ${result.tableReviews} ${result.tableReviews === 1 ? "section has a table" : "sections have tables"} kept as source text — check ${result.tableReviews === 1 ? "it" : "them"} against ${where}.` : ""
+        const procedures = result.procedureReviews ? ` ${result.procedureReviews} ${result.procedureReviews === 1 ? "section has a numbered procedure" : "sections have numbered procedures"} that may be incomplete — check ${result.procedureReviews === 1 ? "it" : "them"} against ${where}.` : ""
         const existing = result.skipped ? ` ${result.skipped} existing ${result.skipped === 1 ? "section was" : "sections were"} left unchanged.` : ""
         const overview = !result.outlined
           ? ` AI structure detection is unavailable right now; sections were created from ${pdf ? "the document's" : "the text's"} detected headings.`
@@ -54,7 +55,7 @@ export function AnalyzeSourceButton({ id, format, analyzed, processing }: {
         const edited = result.staleEdited ? ` ${result.staleEdited} edited draft ${result.staleEdited === 1 ? "section is" : "sections are"} no longer in ${where} and ${result.staleEdited === 1 ? "was" : "were"} kept as ${result.staleEdited === 1 ? "it is" : "they are"}; review ${result.staleEdited === 1 ? "it" : "them"}.` : ""
         const archived = result.archivedStale ? ` ${result.archivedStale} draft ${result.archivedStale === 1 ? "section is" : "sections are"} no longer in ${where} and ${result.archivedStale === 1 ? "was" : "were"} archived.` : ""
         const stale = result.stalePublished ? ` ${result.stalePublished} published ${result.stalePublished === 1 ? "section is" : "sections are"} no longer in ${where}; review ${result.stalePublished === 1 ? "it" : "them"} at the end of the list.` : ""
-        setMessage({ error: false, text: `${pdf ? `Analyzed ${result.pages} ${result.pages === 1 ? "page" : "pages"}` : "Organized the text"}: ${sections}.${refreshed}${tables}${existing}${archived}${edited}${stale}${overview}` })
+        setMessage({ error: false, text: `${pdf ? `Analyzed ${result.pages} ${result.pages === 1 ? "page" : "pages"}` : "Organized the text"}: ${sections}.${refreshed}${tables}${procedures}${existing}${archived}${edited}${stale}${overview}` })
         router.refresh()
       } catch {
         // Existing sections are only changed once analysis succeeds; the dialog stays open to retry.

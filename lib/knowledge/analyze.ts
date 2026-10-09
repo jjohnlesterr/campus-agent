@@ -14,7 +14,7 @@ import type { createClient } from "@/lib/supabase/server"
 type Client = Awaited<ReturnType<typeof createClient>>
 
 export type AnalysisResult =
-  | { ok: true; pages: number; created: number; refreshed: number; skipped: number; outlined: boolean; tableReviews: number; overview: boolean; archivedStale: number; staleEdited: number; stalePublished: number }
+  | { ok: true; pages: number; created: number; refreshed: number; skipped: number; outlined: boolean; tableReviews: number; procedureReviews: number; overview: boolean; archivedStale: number; staleEdited: number; stalePublished: number }
   | { ok: false; error: string }
 
 // Analyze with AI:
@@ -23,7 +23,8 @@ export type AnalysisResult =
 //    own headings and hierarchy (lib/knowledge/outline.ts). Section text is sliced
 //    verbatim from the source; without an outline, chunks are grouped by heading.
 // 3. Save NEW topics as Draft sections with verbatim content and page references, and
-//    refresh unedited AI Drafts with the new text (lib/knowledge/generation.ts).
+//    refresh unedited AI Drafts with the new text (lib/knowledge/generation.ts). A numbered
+//    procedure the source states stays in that verbatim text; no separate Steps are derived.
 // 4. Claude, best effort: an admin-only document overview, plus a category,
 //    short summary and explicitly named office for each new or refreshed Draft.
 //
@@ -70,7 +71,7 @@ export async function analyzeSource(db: Client, documentId: string): Promise<Ana
   const overview = await addOverview(db, source.title, documentId, generated.topics, generated.createdSections)
   return {
     ok: true, pages: extracted.pages, created: generated.created, refreshed: generated.refreshed, skipped: generated.skipped,
-    outlined: generated.outlined, tableReviews: generated.tableReviews, overview, archivedStale: generated.archivedStale, staleEdited: generated.staleEdited, stalePublished: generated.stalePublished,
+    outlined: generated.outlined, tableReviews: generated.tableReviews, procedureReviews: generated.procedureReviews, overview, archivedStale: generated.archivedStale, staleEdited: generated.staleEdited, stalePublished: generated.stalePublished,
   }
 }
 

@@ -45,7 +45,7 @@ export function LibraryCard({ item, timezone, thumbnailUrl, menu }: { item: Libr
       <div className="flex items-start justify-between gap-3">
         {thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from private storage
-          <img src={thumbnailUrl} alt="" draggable={false} className="size-10 shrink-0 rounded-md border object-cover" />
+          <img src={thumbnailUrl} alt="" loading="lazy" decoding="async" draggable={false} className="size-10 shrink-0 rounded-md border object-cover" />
         ) : (
           <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground" aria-hidden="true">
             <Icon className="size-5" />

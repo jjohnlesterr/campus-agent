@@ -22,6 +22,8 @@ export type SourceSection = {
   requirements: string[]
   /** Analysis kept a table as source text: the admin should check it against the PDF. */
   tableReview: boolean
+  /** Analysis found a numbered procedure that looks malformed or cut off: check it against the source. */
+  procedureReview: boolean
   updatedAt: string
   createdAt: string
 }
@@ -63,6 +65,7 @@ export function toSourceSections(records: SectionRecord[]): SourceSection[] {
         steps: [...s.guideline_steps].sort((a, b) => a.step_number - b.step_number).map(({ title, description }) => ({ title, description })),
         requirements: s.requirements,
         tableReview: reference?.tableReview === true,
+        procedureReview: reference?.procedureReview === true,
         updatedAt: s.updated_at,
         createdAt: s.created_at,
       }

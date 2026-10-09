@@ -106,7 +106,9 @@ test('same-topic chunks merge across pages and preserve exact references', () =>
   assert.equal(grouped[2].steps.length, 0)
   assert.equal(grouped[2].requirements.length, 0)
   assert.match(grouped[2].description, /does not state/)
-  assert.deepEqual(grouped[1].steps.map(s => s.title), ['Submit a written request.', 'Settle financial obligations.'])
+  // A labelled procedure stays in the verbatim content; it is not copied into Steps.
+  assert.equal(grouped[1].steps.length, 0)
+  assert.match(grouped[1].content, /Procedure: 1\. Submit a written request\. 2\. Settle financial obligations\./)
 })
 test('generation creates drafts from stored chunks and never overwrites manual edits', async () => {
   const { state, db, createDraftGuides } = database()
@@ -121,17 +123,18 @@ test('generation creates drafts from stored chunks and never overwrites manual e
   assert.equal(state.guides[0].description, 'Manually edited'); assert.equal(state.guides[0].status, 'published')
   assert.deepEqual(state.chunks, original)
 })
-test('overlapping chunks do not duplicate numbered steps, and section numbers normalize', () => {
+test('overlapping chunks do not duplicate a procedure, and section numbers normalize', () => {
   const repeated = { ...sections[2], id: '12345678-1234-4234-8234-123456789ab5', chunk_index: 5, page_number: 4 }
   const transfer = topics.groupSourceSections([sections[2], repeated])[0]
-  assert.equal(transfer.steps.length, 2)
+  assert.equal(transfer.content.match(/Submit a written request/g).length, 1)
+  assert.equal(transfer.steps.length, 0)
   assert.equal(topics.topicKey('5.3 Incomplete Grade'), topics.topicKey('Incomplete Grade'))
   assert.notEqual(topics.topicKey('2026 Calendar'), topics.topicKey('2027 Calendar'))
 })
 test('parallel generation uses the existing unique slug constraint', async () => {
   const { state, db, createDraftGuides } = database()
   await Promise.all([createDraftGuides(db, sourceId), createDraftGuides(db, sourceId)])
-  assert.equal(state.guides.length, 3); assert.equal(new Set(state.guides.map(g => g.slug)).size, 3); assert.equal(state.steps.length, 2)
+  assert.equal(state.guides.length, 3); assert.equal(new Set(state.guides.map(g => g.slug)).size, 3); assert.equal(state.steps.length, 0)
 })
 test('images and non-Ready sources cannot generate guides', async () => {
   for (const change of [{ mime_type: 'image/png' }, { status: 'failed' }]) {
@@ -444,10 +447,12 @@ test('a main topic too large for one section splits into its subsections, which 
   assert.doesNotMatch(grouped[1].content, /attendance rule/)
 })
 
-test('labelled procedures still become steps, and chunk overlap is not duplicated', () => {
+test('labelled procedures stay verbatim in the content without a derived Steps copy, and chunk overlap is not duplicated', () => {
   const lines = topics.sourceLines(['Transfer', 'Procedure:', '1. Submit a written request.', '2. Settle financial obligations.'], false)
   const [transfer] = topics.topicsFromOutline(lines, [{ title: 'Transfer', level: 1, startLine: 1, heading: 'Transfer' }], [])
-  assert.deepEqual(transfer.steps.map(s => s.title), ['Submit a written request.', 'Settle financial obligations.'])
+  assert.equal(transfer.content, 'Transfer\nProcedure:\n1. Submit a written request.\n2. Settle financial obligations.')
+  assert.equal(transfer.steps.length, 0)
+  assert.equal(transfer.procedureReview, undefined)
   assert.deepEqual(transfer.pages, [])
   assert.equal(topics.joinChunks(['First rule. The overlap sentence is here.', 'The overlap sentence is here. Next rule.']), 'First rule. The overlap sentence is here.\n\nNext rule.')
 })
@@ -619,4 +624,43 @@ test('re-analysis archives only unedited AI drafts whose topic left the PDF; edi
   assert.equal(result.archivedStale, 1); assert.equal(result.staleEdited, 1)
   assert.equal(leave.status, 'archived')
   assert.equal(transfer.status, 'draft'); assert.equal(transfer.content, 'Admin-reviewed transfer text.')
+})
+
+test('a source procedure (Procedures for Hearing Complaints) is kept once, verbatim, and flagged only when malformed', () => {
+  const procedure = ['Procedures for Hearing Complaints', 'Due process shall be observed and shall include the following steps:',
+    '1. The complaining party shall file a written report to the Dean.', '2. The Dean should resolve the matter within two (2) working days.',
+    '3. The hearing shall be held in private.', '4. Copies of the resolution shall be furnished to the following offices:', '• Office of the Registrar', '• Guidance Office']
+  const lines = topics.sourceLines(['Student Discipline Committee', 'Composition', '• Director of Student Affairs', ...procedure], false)
+  const [committee] = topics.topicsFromOutline(lines, [{ title: 'Student Discipline Committee', level: 1, startLine: 1, heading: 'Student Discipline Committee' }], [])
+  assert.equal(committee.steps.length, 0)
+  assert.equal(committee.content.match(/file a written report/g).length, 1)
+  assert.match(committee.content, /3\. The hearing shall be held in private\.\n4\. Copies/)
+  assert.equal(committee.procedureReview, undefined)
+  assert.equal(topics.topicReference(committee).procedureReview, undefined)
+
+  // A cut-off item ("five (5"), a skipped number, an item ending mid-sentence: kept as extracted, flagged.
+  const truncated = ['Procedure:', '1. The OSA shall schedule the hearing not later than five (5', '2. The hearing shall be held in private.']
+  const skipped = ['Steps:', '1. File the report.', '2. Answer the charge.', '4. Attend the hearing.']
+  const cutOff = ['Guidelines', '1. The Dean should resolve the matter as soon as possible in his', '2. The hearing shall be held in private.']
+  for (const text of [truncated, skipped, cutOff]) {
+    const sourced = topics.sourceLines(['Hearing', ...text], false)
+    const [topic] = topics.topicsFromOutline(sourced, [{ title: 'Hearing', level: 1, startLine: 1, heading: 'Hearing' }], [])
+    assert.equal(topic.procedureReview, true, text.join(' / '))
+    assert.equal(topics.topicReference(topic).procedureReview, true)
+    assert.equal(topic.content, ['Hearing', ...text].join('\n'))
+    assert.equal(topic.steps.length, 0)
+  }
+  // Numbered policy rules without a procedure label are never flagged.
+  assert.equal(topics.procedureNeedsReview('Rules\n1. Wear the ID\n3. Be on time'), false)
+})
+
+test('re-analysis drops Steps an earlier analysis copied into unchanged, unedited drafts only', async () => {
+  const { state, db, createDraftGuides } = database()
+  await createDraftGuides(db, sourceId)
+  const [first, second] = state.guides
+  state.steps.push({ guideline_id: first.id, step_number: 1, title: 'Submit a written request.', description: '' })
+  Object.assign(second, { status: 'published' })
+  state.steps.push({ guideline_id: second.id, step_number: 1, title: 'Published step.', description: '' })
+  await createDraftGuides(db, sourceId)
+  assert.deepEqual(state.steps.map(s => s.title), ['Published step.'])
 })
