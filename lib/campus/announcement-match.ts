@@ -32,7 +32,19 @@ const STOP_WORDS = new Set([
   "about", "there", "today", "tonight", "upcoming", "paparating", "this", "week", "month", "what", "when", "where", "which", "have", "with", "from", "that", "will", "your", "university", "school", "campus", "official",
   "tungkol", "para", "mayroon", "meron", "kailan", "ngayon", "ngayong", "araw", "linggo", "linggong", "buwan", "yung", "naman", "lang", "nito", "mga", "sana", "please", "paki", "pakisabi",
   ...ANNOUNCEMENT_WORDS, ...LATEST_WORDS,
+  // How many to show ("show me 5", "more", "all"), not what they are about.
+  "show", "give", "list", "display", "more", "else", "other", "others", "lahat", "iba", "pakita", "ipakita", "dagdag",
 ])
+
+// "Show me 5 announcements", "latest two", "tatlong announcement" → that many (capped).
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  isa: 1, isang: 1, dalawa: 2, dalawang: 2, tatlo: 3, tatlong: 3, apat: 4, lima: 5, limang: 5, anim: 6, pito: 7, pitong: 7, walo: 8, walong: 8, siyam: 9, sampu: 10, sampung: 10,
+}
+/** Shown by default, after "show more", and the most a chat answer lists ("show all" included). */
+export const ANNOUNCEMENT_LIMITS = { default: 3, more: 6, max: 10 } as const
+const MORE = /\b(?:more|what else|iba pa|marami pa|dagdag)\b/
+const ALL = /\b(?:show all|all announcements|all the announcements|every announcement|lahat)\b/
 // Without "walang", "pasok" is not about suspensions ("pasok sa requirements").
 const NO_CLASSES = /\bwalang pasok\b|\bno (?:classes|class|pasok)\b/
 
@@ -42,6 +54,13 @@ export type AnnouncementQuestion = {
   /** Other meaningful words ("foundation", "id validation"), matched in title or text. */
   terms: string[]
   latest: boolean
+  /** How many announcements to show: 3 by default, a requested number, more, or all (max 10). */
+  limit: number
+  /**
+   * Category: "all" (University-wide + enabled departments), "university", or a department
+   * code the question names ("latest CECT announcements").
+   */
+  scope: string
 }
 
 function tokensOf(text: string) {
@@ -65,7 +84,10 @@ export function announcementTopics(question: string): AnnouncementTopic[] {
  * A question that asks for current notices: it names announcements/notices, or a topic
  * that only announcements cover (suspensions, advisories, university activities).
  */
-export function detectAnnouncementQuestion(question: string): AnnouncementQuestion | null {
+/** Words that ask for University-wide notices only ("latest university announcements"). */
+const UNIVERSITY_SCOPE = /\b(?:university|university wide|universitywide|school wide|campus wide|unibersidad)\b/
+
+export function detectAnnouncementQuestion(question: string, scopeCodes: readonly string[] = []): AnnouncementQuestion | null {
   const text = normalize(question)
   const tokens = text.split(" ").filter(Boolean)
   const topics = announcementTopics(question)
@@ -83,9 +105,19 @@ export function detectAnnouncementQuestion(question: string): AnnouncementQuesti
 
   const topicWords = new Set(topics.flatMap((t) => TOPICS[t].words))
   const terms = [...new Set(tokens.filter((t) =>
-    t.length >= 4 && !STOP_WORDS.has(t) && ![...topicWords].some((w) => matchesWord(t, w)) && !(t === "walang" || t === "pasok")
+    t.length >= 4 && !STOP_WORDS.has(t) && !(t in NUMBER_WORDS) && ![...topicWords].some((w) => matchesWord(t, w)) && !(t === "walang" || t === "pasok")
   ))]
-  return { window, topics, terms, latest: tokens.some((t) => LATEST_WORDS.has(t)) }
+  // An explicit number wins (capped at 10), then "all" / "more", else the default 3.
+  const asked = tokens.map((t) => (/^\d{1,2}$/.test(t) ? Number(t) : NUMBER_WORDS[t])).find((n) => n !== undefined && n > 0)
+  const limit = asked
+    ? Math.min(asked, ANNOUNCEMENT_LIMITS.max)
+    : ALL.test(text) ? ANNOUNCEMENT_LIMITS.max : MORE.test(text) ? ANNOUNCEMENT_LIMITS.more : ANNOUNCEMENT_LIMITS.default
+  // A named department wins; otherwise "university" narrows to University-wide notices.
+  const codes = new Map(scopeCodes.map((code) => [code.toLowerCase(), code]))
+  const named = tokens.map((t) => codes.get(t)).find(Boolean)
+  const scope = named ?? (UNIVERSITY_SCOPE.test(text) ? "university" : "all")
+  const scopeWords = new Set(codes.keys())
+  return { window, topics, terms: terms.filter((t) => !scopeWords.has(t)), latest: tokens.some((t) => LATEST_WORDS.has(t)), limit, scope }
 }
 
 type Matchable = { title: string; content: string }

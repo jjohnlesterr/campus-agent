@@ -2,9 +2,10 @@ import "server-only"
 
 import type { AnswerSource, StructuredAnswer } from "@/lib/ai/answer-types"
 import type { ReplyLanguage } from "@/lib/ai/language"
+import { inScope } from "@/lib/announcement-scopes"
 import { safeSourceUrl } from "@/lib/announcements"
 import { getBranding } from "@/lib/branding"
-import { type AnnouncementQuestion, type AnnouncementTopic, matchAnnouncements, matchesTopics, windowStart } from "@/lib/campus/announcement-match"
+import { ANNOUNCEMENT_LIMITS, type AnnouncementQuestion, type AnnouncementTopic, matchAnnouncements, matchesTopics, windowStart } from "@/lib/campus/announcement-match"
 import { formatDate, startOfTodayIso } from "@/lib/datetime"
 import type { KnowledgePassage } from "@/lib/rag/search"
 import { createClient } from "@/lib/supabase/server"
@@ -21,22 +22,36 @@ export type CurrentAnnouncement = {
   publish_at: string
   source: string | null
   source_url: string | null
+  /** null = University-wide; otherwise the department the announcement is for. */
+  departments?: { code: string } | null
 }
 
-/** Published, already-dated, unexpired announcements, newest first (so newer relevant notices win). */
-export async function loadCurrentAnnouncements(client?: DbClient, since?: string | null): Promise<CurrentAnnouncement[]> {
+/** How many rows a topic question scans for title/text matches (newest first). */
+const MATCH_WINDOW = 50
+
+/**
+ * Published, already-dated, unexpired announcements, newest first (published date, then
+ * created). The category and the row limit are applied in the database query: "university"
+ * keeps department_id = null, a department code keeps only that department's announcements.
+ */
+export async function loadCurrentAnnouncements(
+  client?: DbClient,
+  { since = null, scope = "all", limit = MATCH_WINDOW }: { since?: string | null; scope?: string; limit?: number } = {},
+): Promise<CurrentAnnouncement[]> {
   const supabase = client ?? (await createClient())
   const now = new Date().toISOString()
+  const department = scope !== "all" && scope !== "university" ? scope : null
   let query = supabase
     .from("announcements")
-    .select("id, title, content, publish_at, source, source_url")
+    // !inner: only announcements of that department are returned.
+    .select(department ? "id, title, content, publish_at, source, source_url, departments!inner(code)" : "id, title, content, publish_at, source, source_url, departments(code)")
     .eq("status", "published")
     .lte("publish_at", now)
     .or(`expires_at.is.null,expires_at.gt.${now}`)
-    .order("publish_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(50)
+  if (scope === "university") query = query.is("department_id", null)
+  if (department) query = query.eq("departments.code", department)
   if (since) query = query.gte("publish_at", since)
+  query = query.order("publish_at", { ascending: false }).order("created_at", { ascending: false }).limit(limit)
   const { data, error } = await query
   if (error) throw new Error(`Announcements could not be loaded: ${error.message}`)
   return data ?? []
@@ -86,11 +101,20 @@ export async function answerAnnouncementQuestion(
 ): Promise<StructuredAnswer> {
   const { timezone } = await getBranding()
   const since = windowStart(question.window, new Date(), startOfTodayIso(timezone))
-  const rows = await loadCurrentAnnouncements(client, since)
-  const found = matchAnnouncements(rows, question).slice(0, question.latest && !question.topics.length && !question.terms.length ? 3 : 5)
+  // "latest announcements" covers both categories (University-wide + CECT); a named category
+  // narrows it. Only as many rows as will be shown are fetched (3 by default, a requested
+  // number, or "more" / "all", at most 10); a topic question scans a window for matches.
+  const scope = question.scope ?? "all"
+  const limit = question.limit ?? ANNOUNCEMENT_LIMITS.default
+  const plain = !question.topics.length && !question.terms.length
+  // "all" may include not-yet-enabled categories, which are dropped below: fetch a little extra.
+  const fetch = plain ? (scope === "all" ? Math.min(limit * 3, MATCH_WINDOW) : limit) : MATCH_WINDOW
+  const rows = (await loadCurrentAnnouncements(client, { since, scope, limit: fetch })).filter((a) => inScope(a.departments?.code ?? null, scope))
+  const found = matchAnnouncements(rows, question).slice(0, limit)
 
   const fil = language === "fil"
   const when = WINDOW_LABELS[language][question.window]
+  const category = question.scope && question.scope !== "all" ? (question.scope === "university" ? (fil ? " pang-unibersidad" : " university-wide") : ` ${question.scope}`) : ""
   const topic = question.topics.length
     ? question.topics.map((t) => TOPIC_LABELS[t][language]).join(fil ? " o " : " or ")
     : question.terms.join(" ")
@@ -99,22 +123,23 @@ export async function answerAnnouncementQuestion(
   const lines = found.map((a) => {
     const date = formatDate(a.publish_at, timezone, { month: "long", day: "numeric", year: "numeric" })
     sources.push(announcementSource(a, date))
-    return `- **${a.title}** (${date}) — ${snippet(a.content)}`
+    const tag = a.departments?.code ? ` · ${a.departments.code}` : ""
+    return `- **${a.title}** (${date}${tag}) — ${snippet(a.content)}`
   })
 
   let summary: string
   if (found.length) {
     summary = topic
       ? fil ? `Ito ang mga published na announcement tungkol sa ${topic}${when}:` : `Here are the published announcements about ${topic}${when}:`
-      : fil ? `Ito ang mga pinakabagong announcement${when}:` : `Here are the latest announcements${when}:`
+      : fil ? `Ito ang mga pinakabagong${category} announcement${when}:` : `Here are the latest${category} announcements${when}:`
   } else {
     summary = topic
       ? fil
         ? `Wala akong nahanap na published na announcement tungkol sa ${topic}${when}. Para makasiguro, tingnan ang official na channels ng unibersidad o makipag-ugnayan sa kinauukulang opisina.`
         : `I couldn't find a published announcement about ${topic}${when}. For confirmation, check the university's official channels or contact the responsible office.`
       : fil
-        ? `Walang published na announcement${when}.`
-        : `There are no published announcements${when}.`
+        ? `Walang published na${category} announcement${when}.`
+        : `There are no published${category} announcements${when}.`
   }
 
   return {
@@ -137,7 +162,7 @@ export async function answerAnnouncementQuestion(
 export async function announcementPassages(topics: AnnouncementTopic[], client?: DbClient, limit = 2): Promise<KnowledgePassage[]> {
   if (!topics.length) return []
   const [{ timezone }, rows] = await Promise.all([getBranding(), loadCurrentAnnouncements(client)])
-  return rows.filter((a) => matchesTopics(a, topics)).slice(0, limit).map((a) => {
+  return rows.filter((a) => inScope(a.departments?.code ?? null, "all") && matchesTopics(a, topics)).slice(0, limit).map((a) => {
     const date = formatDate(a.publish_at, timezone, { month: "long", day: "numeric", year: "numeric" })
     const source = announcementSource(a, date)
     return {

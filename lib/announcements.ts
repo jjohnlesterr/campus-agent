@@ -24,6 +24,11 @@ export function sourceSummary(label: string | null | undefined, url: string | nu
   return /(^|\.)(facebook\.com|fb\.com|fb\.watch)$/.test(host) ? "Facebook post" : host
 }
 
+/** Example source label for the admin form, from the configured university name. */
+export function sourceLabelPlaceholder(universityName: string | null | undefined) {
+  return universityName?.trim() ? `e.g. ${universityName.trim()} Official Facebook` : "e.g. Official university Facebook page"
+}
+
 export const ANNOUNCEMENT_TABS = [
   { value: "all", label: "All" },
   { value: "published", label: "Published" },
@@ -37,26 +42,29 @@ export function announcementTab(value: unknown): AnnouncementTab {
 }
 
 export const ANNOUNCEMENT_SORTS = [
+  { value: "manual", label: "Manual order" },
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
 ] as const
 export type AnnouncementSort = (typeof ANNOUNCEMENT_SORTS)[number]["value"]
 
+/** Manual order (drag and drop) is the default; newest/oldest sort by published date. */
 export function announcementSort(value: unknown): AnnouncementSort {
-  return value === "oldest" ? "oldest" : "newest"
+  return value === "oldest" || value === "newest" ? value : "manual"
 }
 
-type Dated = { publish_at: string | null; created_at: string }
+type Dated = { publish_at: string | null; created_at: string; sort_order?: number | null }
 
 /**
- * By published date (newest or oldest first). A record without a published date
+ * Manual (sort_order), or by published date (newest or oldest first). A record without a published date
  * sorts by when it was created; created_at also breaks ties between same-day notices.
  */
 export function sortAnnouncements<T extends Dated>(rows: T[], sort: AnnouncementSort) {
-  const direction = sort === "oldest" ? 1 : -1
-  return [...rows].sort((a, b) =>
+  const byDate = (direction: number) => (a: T, b: T) =>
     direction * ((a.publish_at ?? a.created_at).localeCompare(b.publish_at ?? b.created_at) || a.created_at.localeCompare(b.created_at))
-  )
+  // Manual: the admin's drag-and-drop order; rows without one follow, newest first.
+  if (sort === "manual") return [...rows].sort((a, b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) || byDate(-1)(a, b))
+  return [...rows].sort(byDate(sort === "oldest" ? 1 : -1))
 }
 
 type Filterable = { title: string; content: string; status: string; source: string | null }
