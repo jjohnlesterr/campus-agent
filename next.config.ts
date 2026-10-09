@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
       { source: "/admin/events", destination: "/admin/announcements", permanent: false },
       { source: "/admin/events/:path*", destination: "/admin/announcements", permanent: false },
       { source: "/app/events", destination: "/app/announcements", permanent: false },
+      // How It Works lives on the public landing page; the in-app page was removed.
+      { source: "/app/how-it-works", destination: "/#how-it-works", permanent: false },
     ];
   },
 };

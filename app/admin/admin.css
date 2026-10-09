@@ -133,3 +133,9 @@
     padding-inline: 2rem;
   }
 }
+
+/* The dashboard (data-layout="dashboard") uses a wider 1480px column than the 80rem
+   default, so the overview fills wide screens without becoming edge-to-edge. */
+.admin-content:has([data-layout="dashboard"]) {
+  max-width: 92.5rem;
+}

@@ -2,12 +2,14 @@ import { ChatView } from "@/components/assistant/chat-view"
 import { requireProfile } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
 
-// Freshman and visitor topics first; published policy knowledge (INC, honors…) still answers.
+// One per source Campus Agent answers from: School Guides, campus map, departments, announcements.
 const QUICK_QUESTIONS = [
   "How do I enroll as a freshman?",
   "What are the transferee requirements?",
-  "Are there scholarships for incoming students?",
+  "What scholarships are available?",
   "Where is the Registrar?",
+  "What programs are offered?",
+  "What are the latest announcements?",
 ]
 
 // New conversation: an empty chat. The conversation is created with the first question.

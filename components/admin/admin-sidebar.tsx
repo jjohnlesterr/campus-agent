@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, Library, LogOut, Map as MapIcon, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
+import { Building2, LayoutDashboard, Library, LogOut, Map as MapIcon, Megaphone, PanelLeftClose, PanelLeftOpen, Settings, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "cn"
@@ -13,20 +13,15 @@ type NavItem = { href: string; label: string; icon: typeof Library; also?: strin
 const NAV_GROUPS: { id: string; label: string; items: NavItem[] }[] = [
   { id: "overview", label: "Overview", items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }] },
   {
-    id: "content",
-    label: "Content",
+    id: "campus-content",
+    label: "Campus Content",
     items: [
       // Source details live under /admin/documents/[id], so they keep this item active.
       { href: "/admin/knowledge", label: "Knowledge Library", icon: Library, also: ["/admin/documents"] },
-    ],
-  },
-  {
-    id: "campus",
-    label: "Campus Information",
-    items: [
-      { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/admin/departments", label: "Departments", icon: Building2 },
       // The old /admin/locations URL redirects here.
       { href: "/admin/campus-map", label: "Campus Map", icon: MapIcon, also: ["/admin/locations"] },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
     ],
   },
   {
@@ -41,9 +36,11 @@ const NAV_GROUPS: { id: string; label: string; items: NavItem[] }[] = [
 
 const controlClass = "inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 
-export function AdminSidebar({ assistantName, userName, collapsed = false, onToggle, onNavigate }: {
+export function AdminSidebar({ assistantName, userName, userEmail, collapsed = false, onToggle, onNavigate }: {
   assistantName: string
   userName: string
+  /** Sign-in email, shown under "Administrator". */
+  userEmail: string
   collapsed?: boolean
   onToggle?: () => void
   onNavigate?: () => void
@@ -111,24 +108,37 @@ export function AdminSidebar({ assistantName, userName, collapsed = false, onTog
           })}
         </div>
       </nav>
-      <div className={cn("flex shrink-0 items-center border-t py-3", collapsed ? "flex-col gap-2 px-2" : "gap-3 px-4")}>
-        <span aria-hidden="true" title={collapsed ? userName : undefined} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-          {userName.trim().charAt(0).toUpperCase() || "A"}
-        </span>
-        {!collapsed && (
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium" title={userName}>{userName}</p>
-            <p className="text-xs text-muted-foreground">Administrator</p>
-          </div>
-        )}
-        <SignOutDialog
-          appName={assistantName}
-          trigger={
-            <button type="button" aria-label="Sign out" title="Sign out" className={controlClass}>
-              <LogOut className="size-4" aria-hidden="true" />
-            </button>
-          }
-        />
+      {/* Account footer, one row (~57px): [avatar] [Administrator / email] [sign out], aligned
+          with the navigation items (same px-3 gutter). Collapsed: avatar over sign out. */}
+      <div className={cn("shrink-0 border-t", collapsed ? "flex flex-col items-center gap-2 px-2 py-3" : "px-3 py-1.5")}>
+        <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "h-11 gap-2.5 rounded-md pr-1 pl-1.5 transition-colors hover:bg-muted/50")}>
+          <span
+            aria-hidden="true"
+            title={collapsed ? userEmail || userName : undefined}
+            className="flex size-[30px] shrink-0 items-center justify-center rounded-full border bg-muted text-[0.6875rem] font-semibold text-muted-foreground"
+          >
+            {userName.trim().charAt(0).toUpperCase() || "A"}
+          </span>
+          {!collapsed && (
+            <div className="flex min-w-0 flex-1 flex-col justify-center leading-tight">
+              <p className="truncate text-sm font-semibold">Administrator</p>
+              <p className="truncate text-xs text-muted-foreground" title={userEmail || userName}>{userEmail || userName}</p>
+            </div>
+          )}
+          <SignOutDialog
+            appName={assistantName}
+            trigger={
+              <button
+                type="button"
+                aria-label="Sign out"
+                title="Sign out"
+                className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+              </button>
+            }
+          />
+        </div>
       </div>
     </div>
   )

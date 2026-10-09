@@ -2,7 +2,7 @@
 
 import {
   BookOpen,
-  CircleHelp,
+  Building2,
   LogOut,
   Map as MapIcon,
   Megaphone,
@@ -19,16 +19,17 @@ import { ConversationActions } from "@/components/student/conversation-actions"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "cn"
 
-// Offices is not listed: location questions are answered from the campus map
-// legend, and /app/offices and the office records remain available.
+// Campus information, read-only views of what admins publish. Offices is not listed:
+// location questions are answered from the campus map, and /app/offices remains available.
 const NAV = [
   { href: "/app/guides", label: "School Guides", icon: BookOpen },
-  { href: "/app/announcements", label: "Announcements", icon: Megaphone },
+  { href: "/app/departments", label: "Departments", icon: Building2 },
   { href: "/app/map", label: "Campus Map", icon: MapIcon },
-  { href: "/app/how-it-works", label: "How It Works", icon: CircleHelp },
+  { href: "/app/announcements", label: "Announcements", icon: Megaphone },
 ]
 
-type ShellUser = { name: string; detail: string | null }
+/** Display name (or email), and the email or "Account" as the second line. */
+type ShellUser = { name: string; detail: string }
 type ShellConversation = { id: string; title: string }
 
 export function StudentShell({
@@ -129,17 +130,26 @@ function SidebarContent({
       </div>
 
       <div className="px-3 pt-1">
+        {/* An action, not a navigation item: white with a border, never the filled active
+            background. On /app itself it only gets a slightly stronger border. */}
         <Link
           href="/app"
           onClick={onNavigate}
-          className="flex h-9 items-center gap-2 rounded-md border border-primary/15 bg-accent px-3 text-sm font-semibold text-accent-foreground transition-colors outline-none hover:border-primary/30 hover:bg-[color-mix(in_oklch,var(--accent),var(--primary)_6%)] focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-current={pathname === "/app" ? "page" : undefined}
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm font-semibold text-foreground shadow-xs transition-colors outline-none hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50",
+            pathname === "/app" ? "border-primary/40" : "border-border"
+          )}
         >
-          <SquarePen className="size-4" aria-hidden="true" />
+          <SquarePen className="size-4 text-primary" aria-hidden="true" />
           New conversation
         </Link>
       </div>
 
-      <nav aria-label="Main" className="mt-3 px-3">
+      <nav aria-labelledby="campus-nav-heading" className="mt-5 px-3">
+        <h2 id="campus-nav-heading" className="mb-1.5 px-3 text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
+          Campus information
+        </h2>
         <ul className="flex flex-col gap-0.5">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`)
@@ -200,39 +210,40 @@ function SidebarContent({
         )}
       </section>
 
-      <div className="flex shrink-0 items-center gap-2 border-t p-3">
-        <Link
-          href="/app/profile"
-          onClick={onNavigate}
-          aria-current={pathname === "/app/profile" ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <span
-            aria-hidden="true"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
+      {/* Account footer, one row: [avatar] [name / email] [sign out]. The name links to the profile. */}
+      <div className="shrink-0 border-t px-3 py-1.5">
+        <div className="flex h-11 items-center gap-2.5 rounded-md pr-1 pl-1.5 transition-colors hover:bg-muted/50">
+          <Link
+            href="/app/profile"
+            onClick={onNavigate}
+            aria-current={pathname === "/app/profile" ? "page" : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            {initials || "?"}
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">{user.name}</span>
-            {user.detail && (
-              <span className="block truncate text-xs text-muted-foreground">{user.detail}</span>
-            )}
-          </span>
-        </Link>
-        <SignOutDialog
-          appName={assistantName}
-          trigger={
-            <button
-              type="button"
-              aria-label="Sign out"
-              title="Sign out"
-              className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            <span
+              aria-hidden="true"
+              className="flex size-[30px] shrink-0 items-center justify-center rounded-full border bg-muted text-[0.6875rem] font-semibold text-muted-foreground"
             >
-              <LogOut className="size-4" aria-hidden="true" />
-            </button>
-          }
-        />
+              {initials || "?"}
+            </span>
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-semibold">{user.name}</span>
+              <span className="truncate text-xs text-muted-foreground" title={user.detail}>{user.detail}</span>
+            </span>
+          </Link>
+          <SignOutDialog
+            appName={assistantName}
+            trigger={
+              <button
+                type="button"
+                aria-label="Sign out"
+                title="Sign out"
+                className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+              </button>
+            }
+          />
+        </div>
       </div>
     </div>
   )

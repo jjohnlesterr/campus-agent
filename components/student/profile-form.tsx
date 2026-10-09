@@ -11,7 +11,7 @@ import { programsForDepartment } from "@/lib/programs"
 import { USER_TYPES } from "@/lib/user-types"
 
 type Option = { id: string; code: string; name: string }
-type ProgramOption = Option & { department_id: string }
+type ProgramOption = { id: string; code: string | null; name: string; department_id: string }
 
 export type ProfileValues = {
   full_name: string
@@ -88,7 +88,7 @@ export function ProfileForm({ values, departments, programs }: { values: Profile
             <option value="">Not sure yet</option>
             {departmentPrograms.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.code === p.name ? p.code : `${p.name} (${p.code})`}
+                {!p.code || p.code === p.name ? p.name : `${p.name} (${p.code})`}
               </option>
             ))}
           </select>

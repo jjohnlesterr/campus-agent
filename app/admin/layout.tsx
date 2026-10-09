@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const [profile, { assistantName }] = await Promise.all([requireAdmin(), getBranding()])
 
   return (
-    <AdminShell assistantName={assistantName} userName={profile.full_name ?? profile.email ?? "Admin"}>
+    <AdminShell assistantName={assistantName} userName={profile.full_name?.trim() || profile.email || "Admin"} userEmail={profile.email ?? ""}>
       {children}
     </AdminShell>
   )
