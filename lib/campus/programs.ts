@@ -8,10 +8,10 @@ import type { ProgramsQuestion } from "@/lib/campus/programs-match"
 import { createClient } from "@/lib/supabase/server"
 import type { DbClient } from "@/lib/supabase/types"
 
-/** College codes ("CECT"), so questions naming a college are scoped to it. */
+/** Published college codes ("CECT"), so questions naming a college are scoped to it. */
 export const getDepartmentCodes = cache(async (client?: DbClient): Promise<string[]> => {
   const supabase = client ?? (await createClient())
-  const { data } = await supabase.from("departments").select("code")
+  const { data } = await supabase.from("departments").select("code").eq("is_published", true)
   return (data ?? []).map((d) => d.code)
 })
 
@@ -19,13 +19,16 @@ export const getDepartmentCodes = cache(async (client?: DbClient): Promise<strin
  * "Bachelor of Science in Information Technology (BSIT)". Acronym codes are added; descriptive
  * codes ("BS Psychology") would only repeat the name, and abbreviation-only programs show as-is.
  */
-function programLabel(p: { code: string; name: string }) {
-  return p.code === p.name || p.name.includes(p.code) || /\s/.test(p.code) ? p.name : `${p.name} (${p.code})`
+function programLabel(p: { code: string | null; name: string }) {
+  return !p.code || p.code === p.name || p.name.includes(p.code) || /\s/.test(p.code) ? p.name : `${p.name} (${p.code})`
 }
 
-/** Colleges and their programs from the official records (Settings → Colleges and programs). */
-export async function answerProgramsQuestion(question: ProgramsQuestion, language: ReplyLanguage, supabase: DbClient): Promise<StructuredAnswer> {
-  let query = supabase.from("departments").select("code, name, programs(code, name)").order("code")
+/**
+ * Published colleges and their programs from Admin › Departments. `linkToList` adds a link
+ * to the Departments page (signed-in users; public visitors get the answer only).
+ */
+export async function answerProgramsQuestion(question: ProgramsQuestion, language: ReplyLanguage, supabase: DbClient, { linkToList = false }: { linkToList?: boolean } = {}): Promise<StructuredAnswer> {
+  let query = supabase.from("departments").select("code, name, programs(code, name)").eq("is_published", true).order("code")
   if (question.department) query = query.eq("code", question.department)
   const { data, error } = await query
   if (error) throw new Error(`Programs could not be loaded: ${error.message}`)
@@ -54,5 +57,6 @@ export async function answerProgramsQuestion(question: ProgramsQuestion, languag
     details,
     gaps: "",
     sources: colleges.length ? [{ label: "University colleges and programs", documentTitle: "University colleges and programs", pageNumber: null, sectionTitle: null }] : [],
+    ...(linkToList && colleges.length ? { link: { label: language === "fil" ? "Tingnan ang mga departamento" : "View departments", href: "/app/departments" } } : {}),
   }
 }
