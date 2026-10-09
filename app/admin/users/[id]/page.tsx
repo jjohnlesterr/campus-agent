@@ -2,43 +2,52 @@ import { notFound } from "next/navigation"
 import { z } from "zod"
 
 import { AccountsNotConfigured } from "@/components/admin/accounts-not-configured"
-import { EditUserForm, ResetPasswordForm } from "@/components/admin/user-form"
+import { AccountActions, DeleteAccount } from "@/components/admin/user-account-actions"
+import { EditUserForm } from "@/components/admin/user-form"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { requireAdmin } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
 import { formatDate } from "@/lib/datetime"
-import { getDepartments, getPrograms } from "@/lib/departments"
 import { hasServiceRoleKey } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { userTypeLabel } from "@/lib/user-types"
 
+// Admin › Users › one regular account (role "user"): account information, account access
+// (password reset link, deactivate/reactivate) and a danger zone (delete). Only role "user"
+// accounts open here, so no role is shown; email is read-only. The server actions refuse
+// admins, including the one signed in.
 export default async function EditUserPage({ params }: PageProps<"/admin/users/[id]">) {
-  await requireAdmin()
+  const me = await requireAdmin()
   const { id } = await params
-  if (!z.uuid().safeParse(id).success) notFound()
+  if (!z.uuid().safeParse(id).success || id === me.id) notFound()
 
   const supabase = await createClient()
-  const [{ data: user }, departments, programs, { timezone }] = await Promise.all([
+  const [{ data: user }, { timezone }] = await Promise.all([
     supabase
       .from("profiles")
-      .select(
-        "id, full_name, email, user_type, intended_department_id, intended_program_id, department_id, program_id, student_id, year_level, must_change_password, created_at"
-      )
+      .select("id, full_name, email, must_change_password, deactivated_at, created_at")
       .eq("id", id)
-      .eq("role", "student") // internal value for every non-admin (user) account
+      .eq("role", "user")
       .maybeSingle(),
-    getDepartments(),
-    getPrograms(),
     getBranding(),
   ])
   if (!user) notFound()
   const configured = hasServiceRoleKey()
+  const deactivated = Boolean(user.deactivated_at)
+  // Accounts an admin invited, until the user sets a password from the invitation link.
+  const awaitingFirstLogin = user.must_change_password && !deactivated
+  const account = { id: user.id, name: user.full_name ?? user.email ?? "This user", email: user.email ?? "", deactivated, awaitingFirstLogin }
+  const date = (iso: string) => formatDate(iso, timezone, { month: "short", day: "numeric", year: "numeric" })
+
+  const card = "overflow-hidden rounded-lg border bg-background"
+  const cardHeader = "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-5 py-3"
 
   return (
     <>
-      <PageHeader title={user.full_name ?? user.email ?? "User"} description={userTypeLabel(user.user_type) ?? "User account"}>
-        {user.must_change_password ? (
+      <PageHeader title={user.full_name ?? user.email ?? "User"} description="User account">
+        {deactivated ? (
+          <StatusBadge status="cancelled" label="Deactivated" />
+        ) : awaitingFirstLogin ? (
           <StatusBadge status="draft" label="Awaiting first login" />
         ) : (
           <StatusBadge status="published" label="Active" />
@@ -46,45 +55,34 @@ export default async function EditUserPage({ params }: PageProps<"/admin/users/[
       </PageHeader>
       {!configured && <AccountsNotConfigured />}
 
-      <section aria-labelledby="details-heading" className="mt-6 max-w-2xl rounded-lg border bg-background p-6">
-        <h2 id="details-heading" className="font-semibold">
-          Details
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Joined {formatDate(user.created_at, timezone, { month: "short", day: "numeric", year: "numeric" })}
-        </p>
-        <div className="mt-5">
-          <EditUserForm
-            departments={departments}
-            programs={programs}
-            disabled={!configured}
-            user={{
-              id: user.id,
-              full_name: user.full_name ?? "",
-              email: user.email ?? "",
-              user_type: user.user_type ?? "",
-              // Older accounts only have their enrolled college/program; start from those.
-              intended_department_id: user.intended_department_id ?? user.department_id ?? "",
-              intended_program_id: user.intended_department_id ? (user.intended_program_id ?? "") : (user.program_id ?? ""),
-              student_id: user.student_id ?? "",
-              year_level: user.year_level ? String(user.year_level) : "",
-            }}
-          />
-        </div>
-      </section>
+      <div className="mt-6 flex max-w-3xl flex-col gap-5">
+        <section aria-labelledby="account-heading" className={card}>
+          <div className={cardHeader}>
+            <h2 id="account-heading" className="text-sm font-semibold">Account information</h2>
+            <p className="text-xs text-muted-foreground">
+              Joined <time dateTime={user.created_at}>{date(user.created_at)}</time>
+              {user.deactivated_at && <> · Deactivated <time dateTime={user.deactivated_at}>{date(user.deactivated_at)}</time></>}
+            </p>
+          </div>
+          <div className="p-5">
+            <EditUserForm disabled={!configured} user={{ id: user.id, full_name: user.full_name ?? "", email: user.email ?? "" }} />
+          </div>
+        </section>
 
-      <section aria-labelledby="password-heading" className="mt-6 max-w-2xl rounded-lg border bg-background p-6">
-        <h2 id="password-heading" className="font-semibold">
-          Temporary password
-        </h2>
-        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          For a user who can&apos;t sign in. Passwords are kept only by Supabase Auth — Campus Agent never stores or
-          shows the current one.
-        </p>
-        <div className="mt-5">
-          <ResetPasswordForm userId={user.id} disabled={!configured} />
-        </div>
-      </section>
+        <section aria-labelledby="access-heading" className={card}>
+          <div className={cardHeader}>
+            <h2 id="access-heading" className="text-sm font-semibold">Account access</h2>
+          </div>
+          <AccountActions account={account} disabled={!configured} />
+        </section>
+
+        <section aria-labelledby="danger-heading" className="overflow-hidden rounded-lg border border-destructive/30 bg-destructive/[0.03]">
+          <div className="border-b border-destructive/20 px-5 py-3">
+            <h2 id="danger-heading" className="text-sm font-semibold text-destructive">Danger zone</h2>
+          </div>
+          <DeleteAccount account={account} disabled={!configured} />
+        </section>
+      </div>
     </>
   )
 }

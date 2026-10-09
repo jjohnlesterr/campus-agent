@@ -1,7 +1,6 @@
-import { UserPlus, Users } from "lucide-react"
+import { CircleCheck, UserPlus, Users } from "lucide-react"
 import Link from "next/link"
 
-import { AdminDepartmentFilter } from "@/components/admin/admin-department-filter"
 import { EmptyState } from "@/components/shared/empty-state"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -9,54 +8,41 @@ import { buttonVariants } from "@/components/ui/button"
 import { requireAdmin } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
 import { formatDate } from "@/lib/datetime"
-import { getDepartments, resolveAdminDepartmentFilter } from "@/lib/departments"
 import { createClient } from "@/lib/supabase/server"
-import { userTypeLabel } from "@/lib/user-types"
 
+// Admin › Users: the directory of regular accounts (role "user"): name, email, joined date,
+// status. Administrator accounts are not listed here; the signed-in admin appears in the
+// sidebar. Older profile columns (college, program, student ID…) are not read.
 export default async function AdminUsersPage({ searchParams }: PageProps<"/admin/users">) {
   await requireAdmin()
-  const [supabase, departments, { timezone }, { dept }] = await Promise.all([createClient(), getDepartments(), getBranding(), searchParams])
-  // Filter by intended college (or, for older accounts, their enrolled college).
-  const resolved = resolveAdminDepartmentFilter(dept, departments)
-  const department = resolved.kind === "department" ? resolved.department : null
-
-  let query = supabase
+  const [supabase, { timezone }, { deleted }] = await Promise.all([createClient(), getBranding(), searchParams])
+  const { data: users, error } = await supabase
     .from("profiles")
-    .select(
-      `id, full_name, email, user_type, must_change_password, created_at,
-       intended_department:departments!profiles_intended_department_id_fkey(code, name),
-       intended_program:programs!profiles_intended_program_id_fkey(code, name),
-       department:departments!profiles_department_id_fkey(code, name),
-       program:programs!profiles_program_id_fkey(code, name)`
-    )
-    .eq("role", "student") // internal value for every non-admin (user) account
+    .select("id, full_name, email, must_change_password, deactivated_at, created_at")
+    .eq("role", "user")
     .order("created_at", { ascending: false })
-  if (department) {
-    query = query.or(`intended_department_id.eq.${department.id},and(intended_department_id.is.null,department_id.eq.${department.id})`)
-  }
-  const { data: users, error } = await query
-
-  // Carries the current college into the form so it starts preselected.
-  const addHref = department ? `/admin/users/new?dept=${encodeURIComponent(department.code)}` : "/admin/users/new"
-  const noun = department ? `${department.code} users` : "users"
 
   return (
     <>
-      <PageHeader title="Users" description="Incoming freshmen and visitors create their own accounts through public sign-up.">
-        <Link href={addHref} className={buttonVariants({ variant: "outline", size: "lg" })}>
+      <PageHeader title="Users" description="Manage Campus Agent user accounts and profile information.">
+        <Link href="/admin/users/new" className={buttonVariants({ variant: "outline", size: "lg" })}>
           <UserPlus aria-hidden="true" />
           Create account manually
         </Link>
       </PageHeader>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <AdminDepartmentFilter value={department?.code ?? "all"} departments={departments} allLabel="All Users" showUniversity={false} />
-        {users && (
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            {users.length} {users.length === 1 ? noun.replace(/s$/, "") : noun}
-          </p>
-        )}
-      </div>
+      {deleted === "1" && (
+        <p role="status" className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <CircleCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
+          Account deleted.
+        </p>
+      )}
+
+      {users && users.length > 0 && (
+        <p className="mt-6 text-xs text-muted-foreground" aria-live="polite">
+          {users.length} {users.length === 1 ? "user" : "users"}
+        </p>
+      )}
 
       <div className="mt-4 overflow-hidden rounded-lg border bg-background">
         {error ? (
@@ -70,61 +56,45 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                 <tr>
                   <th scope="col" className="px-4 py-2.5 font-medium">Name</th>
                   <th scope="col" className="px-4 py-2.5 font-medium">Email</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">User Type</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Intended College / Program</th>
                   <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
                   <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
                   <th scope="col" className="px-4 py-2.5"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {users.map((u) => {
-                  const college = u.intended_department ?? u.department
-                  const program = u.intended_department ? u.intended_program : u.program
-                  return (
-                    <tr key={u.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <Link href={`/admin/users/${u.id}`} className="font-medium hover:text-primary hover:underline">
-                          {u.full_name ?? "—"}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{u.email ?? "—"}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{userTypeLabel(u.user_type) ?? <span className="text-muted-foreground">—</span>}</td>
-                      <td className="px-4 py-3 text-muted-foreground" title={[college?.name, program?.name].filter(Boolean).join(" · ") || undefined}>
-                        {[college?.code, program?.code].filter(Boolean).join(" · ") || "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap tabular-nums text-muted-foreground">
-                        {formatDate(u.created_at, timezone, { month: "short", day: "numeric", year: "numeric" })}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {u.must_change_password ? (
-                          <StatusBadge status="draft" label="Awaiting first login" />
-                        ) : (
-                          <StatusBadge status="published" label="Active" />
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <Link href={`/admin/users/${u.id}`} className="font-medium text-primary hover:underline">
-                          View / Edit<span className="sr-only"> {u.full_name ?? u.email}</span>
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Link href={`/admin/users/${u.id}`} className="font-medium hover:text-primary hover:underline">
+                        {u.full_name ?? <span className="text-muted-foreground">No name</span>}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{u.email ?? "—"}</td>
+                    <td className="px-4 py-3 whitespace-nowrap tabular-nums text-muted-foreground">
+                      {formatDate(u.created_at, timezone, { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {u.deactivated_at ? (
+                        <StatusBadge status="cancelled" label="Deactivated" />
+                      ) : u.must_change_password ? (
+                        <StatusBadge status="draft" label="Awaiting first login" />
+                      ) : (
+                        <StatusBadge status="published" label="Active" />
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <Link href={`/admin/users/${u.id}`} className="font-medium text-primary hover:underline">
+                        View / Edit<span className="sr-only"> {u.full_name ?? u.email}</span>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         ) : (
           <div className="p-2">
-            <EmptyState
-              icon={Users}
-              title={department ? `No ${department.code} users yet.` : "No registered users yet."}
-              description={
-                department
-                  ? "Nobody has chosen this college yet. Choose another college or view all users."
-                  : "Users appear here once incoming freshmen and visitors sign up."
-              }
-            />
+            <EmptyState icon={Users} title="No registered users yet." description="Accounts appear here once people sign up for Campus Agent." />
           </div>
         )}
       </div>
