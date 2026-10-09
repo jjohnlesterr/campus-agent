@@ -28,13 +28,14 @@ export function personalProgramId(profile: Pick<Profile, "intended_program_id" |
   return profile.intended_program_id ?? profile.program_id
 }
 
-/** Where a signed-in user should go next: change a temporary password first, then home. */
+/** Where a signed-in user should go next: set a password first (invited accounts), then home. */
 export function nextPathFor(profile: Pick<Profile, "role" | "must_change_password">) {
   return profile.must_change_password ? CHANGE_PASSWORD_PATH : homePathFor(profile.role)
 }
 
 // The signed-in user's profile, or null when signed out. getClaims() verifies
-// the session token; cache() dedupes the lookup within one request.
+// the session token; cache() dedupes the lookup within one request. A deactivated
+// account counts as signed out (its Auth user is also banned, so it can't sign in again).
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient()
   const { data } = await supabase.auth.getClaims()
@@ -46,12 +47,12 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     .select("*")
     .eq("id", userId)
     .maybeSingle()
-  return profile
+  return profile && !profile.deactivated_at ? profile : null
 })
 
 /**
  * Signed-in user with a usable account. Sends signed-out visitors to /login
- * and users still on a temporary password to /change-password.
+ * and accounts that haven't set their password yet (invited) to /change-password.
  */
 export async function requireProfile() {
   const profile = await getCurrentProfile()

@@ -111,7 +111,7 @@ test('"not found" answers still count as a successful question', async () => {
 })
 
 test('signed-in users have no guest limit', async () => {
-  const { askPublic, jar } = setup({ profile: { id: 'u1', role: 'student' } })
+  const { askPublic, jar } = setup({ profile: { id: 'u1', role: 'user' } })
   for (let i = 0; i < 5; i++) {
     const result = await askPublic('How do I enroll?')
     assert.equal(result.ok, true)

@@ -15,10 +15,7 @@ export function userTypeLabel(value: string | null | undefined) {
   return USER_TYPES.find((t) => t.value === value)?.label ?? null
 }
 
-/**
- * How an account is described in the product. The database keeps the legacy
- * internal role value "student" for every non-admin account; it is shown as "User".
- */
+/** Authorization role (profiles.role) as shown in the admin: "Admin" or "User". Never a user category. */
 export function roleLabel(role: string) {
-  return role === "admin" ? "Administrator" : "User"
+  return role === "admin" ? "Admin" : "User"
 }

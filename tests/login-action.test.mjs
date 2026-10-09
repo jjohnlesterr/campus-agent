@@ -18,7 +18,7 @@ function load(relative, mocks) {
 }
 
 // Supabase Auth stand-in: one account, exact password only (like the real service).
-const ACCOUNT = { email: 'student@school.edu', password: 'Ab3dEf6hJk9m', id: 'u1', profile: { role: 'student', must_change_password: true } }
+const ACCOUNT = { email: 'student@school.edu', password: 'Ab3dEf6hJk9m', id: 'u1', profile: { role: 'user', must_change_password: true } }
 function setup() {
   const attempts = []
   const supabase = {

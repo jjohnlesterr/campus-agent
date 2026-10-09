@@ -1,18 +1,6 @@
-// "Your Campus Agent account" email for accounts an admin creates manually. Pure (no
-// server imports) so it can be tested. The temporary password exists only in
-// this message and in memory during the request — it is never stored or logged.
-
-export type AccountEmailInput = {
-  fullName: string
-  email: string
-  temporaryPassword: string
-  loginUrl: string
-  assistantName?: string
-  /** Public https URL of the logo. Omitted in development: mail clients can't load localhost images. */
-  logoUrl?: string
-  /** "created" for a new account, "reset" when an admin sets a new temporary password. */
-  reason?: "created" | "reset"
-}
+// Account emails sent by the app (server-side, through lib/email/send.ts). Pure (no server
+// imports) so they can be tested. Invitations use Supabase Auth's own email instead, and no
+// email ever contains a password.
 
 const NAVY = "#13204a"
 const BLUE = "#1f6feb"
@@ -31,46 +19,22 @@ function brandHeader(assistantName: string, logoUrl?: string) {
   return `<span style="font-size:20px;font-weight:bold;letter-spacing:-0.01em;color:${NAVY}">${escapeHtml(first)}${tail}</span>`
 }
 
-export function buildAccountEmail({
-  fullName,
-  email,
-  temporaryPassword,
-  loginUrl,
-  assistantName = "Campus Agent",
-  logoUrl,
-  reason = "created",
-}: AccountEmailInput) {
-  const subject = reason === "reset" ? `Your new ${assistantName} temporary password` : `Your ${assistantName} account`
-  const intro =
-    reason === "reset"
-      ? `Your university administrator has set a new temporary password for your ${assistantName} account.`
-      : `Your ${assistantName} account has been created by your university administrator.`
-  const firstLogin = "You will be asked to create a new password the first time you sign in."
-  const security = "For security, do not share your password with anyone."
+export type PasswordResetEmailInput = {
+  fullName: string
+  /** One-time Supabase recovery link (opens "Choose a new password"). Never logged. */
+  resetUrl: string
+  assistantName?: string
+  logoUrl?: string
+}
 
-  const text = [
-    `Hello ${fullName},`,
-    "",
-    intro,
-    "",
-    "Email:",
-    email,
-    "",
-    "Temporary password:",
-    temporaryPassword,
-    "",
-    "Sign in:",
-    loginUrl,
-    "",
-    firstLogin,
-    "",
-    security,
-    "",
-    assistantName,
-  ].join("\n")
+/** "Reset your password" email sent when an admin starts a password reset for a user. */
+export function buildPasswordResetEmail({ fullName, resetUrl, assistantName = "Campus Agent", logoUrl }: PasswordResetEmailInput) {
+  const subject = `Reset your ${assistantName} password`
+  const intro = `A password reset was requested for your ${assistantName} account. Use the button below to choose a new password.`
+  const note = "This link can be used once and expires soon. If you didn't expect this email, you can ignore it: your password stays the same."
 
-  const label = `margin:0;font-size:12px;color:${SLATE};text-transform:uppercase;letter-spacing:.04em`
-  const value = `margin:4px 0 16px;font-size:15px;color:${NAVY}`
+  const text = [`Hello ${fullName},`, "", intro, "", "Choose a new password:", resetUrl, "", note, "", assistantName].join("\n")
+
   const html = `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#f3f7fc;font-family:Arial,Helvetica,sans-serif;color:${NAVY}">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #dde4ef;border-radius:10px">
@@ -78,13 +42,8 @@ export function buildAccountEmail({
     <tr><td style="padding:28px">
       <p style="margin:0 0 16px;font-size:15px">Hello ${escapeHtml(fullName)},</p>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.5">${escapeHtml(intro)}</p>
-      <p style="${label}">Email</p>
-      <p style="${value}">${escapeHtml(email)}</p>
-      <p style="${label}">Temporary password</p>
-      <p style="${value};font-family:Consolas,Menlo,monospace;font-size:16px;letter-spacing:.03em">${escapeHtml(temporaryPassword)}</p>
-      <p style="margin:8px 0 24px"><a href="${escapeHtml(loginUrl)}" style="display:inline-block;background:${BLUE};color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-size:14px;font-weight:bold">Sign in to ${escapeHtml(assistantName)}</a></p>
-      <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:${SLATE}">${escapeHtml(firstLogin)}</p>
-      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:${SLATE}">${escapeHtml(security)}</p>
+      <p style="margin:0 0 24px"><a href="${escapeHtml(resetUrl)}" style="display:inline-block;background:${BLUE};color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-size:14px;font-weight:bold">Choose a new password</a></p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:${SLATE}">${escapeHtml(note)}</p>
       <p style="margin:0;font-size:14px;font-weight:bold;color:${NAVY}">${escapeHtml(assistantName)}</p>
     </td></tr>
   </table>

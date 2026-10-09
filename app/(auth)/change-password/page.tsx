@@ -4,7 +4,7 @@ import { ChangePasswordForm } from "@/components/auth/change-password-form"
 import { SignOutButton } from "@/components/auth/sign-out-button"
 import { getCurrentProfile, homePathFor } from "@/lib/auth"
 
-// First-login step for accounts created with a temporary password.
+// First-login step: an invited account (or an older admin-created one) chooses its own password.
 export default async function ChangePasswordPage() {
   const profile = await getCurrentProfile()
   if (!profile) redirect("/login")
@@ -14,8 +14,8 @@ export default async function ChangePasswordPage() {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Set your password</h1>
       <p className="mt-1 mb-6 text-sm text-muted-foreground">
-        {profile.full_name ? `Welcome, ${profile.full_name.split(/\s+/)[0]}. ` : ""}You signed in with a temporary
-        password. Choose a new one to continue.
+        {profile.full_name ? `Welcome, ${profile.full_name.split(/\s+/)[0]}. ` : ""}Choose a password to finish setting
+        up your account.
       </p>
       <ChangePasswordForm email={profile.email} />
       <div className="mt-4 flex justify-center">

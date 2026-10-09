@@ -35,7 +35,7 @@ async function outcome(fn) {
   try { return { ok: await fn() } } catch (e) { if (e instanceof Redirect) return { redirect: e.to }; throw e }
 }
 
-const freshman = { id: 'u1', role: 'student', user_type: 'freshman', must_change_password: false }
+const freshman = { id: 'u1', role: 'user', user_type: 'freshman', must_change_password: false }
 const admin = { id: 'a1', role: 'admin', user_type: null, must_change_password: false }
 
 test('signed-out visitors are sent to sign in from protected pages', async () => {
@@ -60,7 +60,7 @@ test('sign-in destination comes from the database role', () => {
   assert.equal(auth.nextPathFor(freshman), '/app')
   assert.equal(auth.nextPathFor(admin), '/admin')
   // Self-registered users never start on a temporary password; admin-created ones still do.
-  assert.equal(auth.nextPathFor({ role: 'student', must_change_password: true }), '/change-password')
+  assert.equal(auth.nextPathFor({ role: 'user', must_change_password: true }), '/change-password')
 })
 
 test('personalization prefers the intended college/program, then the legacy one', () => {
@@ -70,11 +70,11 @@ test('personalization prefers the intended college/program, then the legacy one'
   assert.equal(auth.personalProgramId({ intended_program_id: null, program_id: null }), null)
 })
 
-test('user type labels; the internal "student" role is shown as User', () => {
+test('user type labels; roles are shown as Admin or User', () => {
   const types = load('lib/user-types.ts')
   assert.equal(types.userTypeLabel('freshman'), 'Incoming Freshman')
   assert.equal(types.userTypeLabel('visitor'), 'Visitor')
   assert.equal(types.userTypeLabel(null), null)
-  assert.equal(types.roleLabel('student'), 'User')
-  assert.equal(types.roleLabel('admin'), 'Administrator')
+  assert.equal(types.roleLabel('user'), 'User')
+  assert.equal(types.roleLabel('admin'), 'Admin')
 })

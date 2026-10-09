@@ -14,7 +14,7 @@ function isProtected(pathname: string) {
 // Components always see a valid session. Called from the root proxy.ts.
 //
 // This is only an optimistic check: signed-out visitors are sent to /login
-// before /app or /admin renders. Role checks (student vs admin) are NOT done
+// before /app or /admin renders. Role checks (user vs admin) are NOT done
 // here — they happen on the server in lib/auth.ts (requireProfile /
 // requireAdmin) and are enforced again by RLS in the database.
 export async function updateSession(request: NextRequest) {

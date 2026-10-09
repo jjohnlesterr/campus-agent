@@ -103,7 +103,9 @@ export async function login(_prev: AuthFormState, formData: FormData): Promise<A
       error:
         error?.code === "email_not_confirmed"
           ? "Confirm your email address first: open the link we sent to your inbox."
-          : "Incorrect email or password.",
+          : error?.code === "user_banned"
+            ? "This account has been deactivated. Contact the university if you think this is a mistake."
+            : "Incorrect email or password.",
     }
   }
 
@@ -113,7 +115,7 @@ export async function login(_prev: AuthFormState, formData: FormData): Promise<A
     .eq("id", data.user.id)
     .single()
 
-  redirect(nextPathFor(profile ?? { role: "student", must_change_password: false }))
+  redirect(nextPathFor(profile ?? { role: "user", must_change_password: false }))
 }
 
 const changePasswordSchema = z
@@ -124,8 +126,9 @@ const changePasswordSchema = z
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match." })
 
 /**
- * Replaces a temporary password. The password is changed in Supabase Auth only;
- * a database trigger then clears profiles.must_change_password.
+ * Sets a new password: the first one for an invited account, or after a password-reset link. The
+ * password is changed in Supabase Auth only; a database trigger then clears
+ * profiles.must_change_password.
  */
 export async function changePassword(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const profile = await getCurrentProfile()
@@ -142,7 +145,7 @@ export async function changePassword(_prev: AuthFormState, formData: FormData): 
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
   if (error) {
     if (error.code === "same_password") {
-      return { fieldErrors: { password: "Choose a password different from your temporary password." } }
+      return { fieldErrors: { password: "Choose a password different from your current one." } }
     }
     if (error.code === "weak_password") {
       return { fieldErrors: { password: "This password is too weak. Try a longer one with letters and numbers." } }

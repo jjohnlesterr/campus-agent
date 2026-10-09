@@ -22,7 +22,7 @@ export async function sendEmail(message: { to: string; subject: string; text: st
     const { error } = await client.emails.send({ from, to: [message.to], subject: message.subject, text: message.text, html: message.html })
     if (!error) return { ok: true }
 
-    // Error name and status only — the message body contains the temporary password.
+    // Error name and status only — the message body may contain a one-time link.
     console.error(`sendEmail: Resend rejected the message (${error.statusCode ?? "?"} ${error.name})`)
     if (error.name === "missing_api_key" || error.name === "invalid_api_key" || error.name === "restricted_api_key" || error.name === "invalid_from_address") {
       return { ok: false, reason: "not_configured" }
