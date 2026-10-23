@@ -1,4 +1,5 @@
-import { BookOpen, Building2, CalendarDays, FileCheck2, ListChecks, MapPin, ShieldCheck } from "lucide-react"
+import { ListChecks, MapPin, ShieldCheck } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 
 import { ExampleAnswer } from "@/components/landing/example-answer"
@@ -8,7 +9,7 @@ import { PublicAsk } from "@/components/landing/public-ask"
 import { HowItWorksSteps } from "@/components/shared/how-it-works-steps"
 import { getCurrentProfile, homePathFor } from "@/lib/auth"
 import { getBranding } from "@/lib/branding"
-import { GUEST_QUESTION_LIMIT, readGuestQuota, remainingQuestions } from "@/lib/guest-quota"
+import { readGuestQuota, remainingQuestions } from "@/lib/guest-quota"
 
 // Questions incoming freshmen and visitors ask first.
 const SUGGESTIONS = [
@@ -20,14 +21,14 @@ const SUGGESTIONS = [
 ]
 
 const SOURCES = [
-  { icon: BookOpen, name: "Student Handbook", use: "Academic rules, policies and procedures" },
-  { icon: FileCheck2, name: "Official Memos and Policies", use: "Updated processes, reviewed by university staff" },
-  { icon: Building2, name: "Campus / Office Information", use: "Which office handles what, and where it is" },
-  { icon: CalendarDays, name: "Academic Calendar", use: "Enrollment, exams and university dates" },
+  { image: "/assets/handbook.png", name: "Student Handbook", use: "Academic rules, policies and procedures" },
+  { image: "/assets/memo.png", name: "Official Memos and Policies", use: "Updated processes, reviewed by university staff" },
+  { image: "/assets/campus.png", name: "Campus / Office Information", use: "Which office handles what, and where it is" },
+  { image: "/assets/calendar.png", name: "Academic Calendar", use: "Enrollment, exams and university dates" },
 ]
 
 const ABOUT_POINTS = [
-  { icon: ShieldCheck, title: "Verified information", body: "Uses university-approved sources." },
+  { icon: ShieldCheck, title: "Reliable information", body: "Uses university-approved sources." },
   { icon: ListChecks, title: "Clear guidance", body: "Turns complex procedures into understandable steps." },
   { icon: MapPin, title: "Campus navigation", body: "Helps you find offices, buildings and essential university information." },
 ]
@@ -38,21 +39,20 @@ export default async function LandingPage() {
   const remaining = profile ? null : remainingQuestions(quota)
 
   return (
-    <div className="landing-page flex flex-1 flex-col bg-background">
-      <LandingNav account={profile ? { homeHref: homePathFor(profile.role) } : null} />
+    <div className="landing-page flex flex-1 flex-col bg-[linear-gradient(to_bottom,var(--canvas)_0_100svh,var(--background)_100svh)] [--landing-header-space:88px] sm:[--landing-header-space:104px] [&>footer]:bg-white">
+      <LandingNav floating account={profile ? { homeHref: homePathFor(profile.role) } : null} />
 
       <main className="flex-1">
         {/* Hero: centered headline and the public ask box */}
-        <section className="border-b bg-[var(--canvas)]">
-          <div className="mx-auto flex max-w-3xl flex-col items-center px-4 pt-16 pb-20 text-center sm:px-6 lg:pt-24 lg:pb-24">
-            <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">For incoming freshmen and visitors</p>
-            <h1 className="mt-4 text-4xl leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-5xl lg:text-[3.5rem]">
-              New to campus? <br className="hidden sm:block" />
-              Ask {assistantName}.
+        <section className="flex min-h-[calc(100svh-var(--landing-header-space))] flex-col justify-center border-b bg-[var(--canvas)]">
+          <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 py-8 text-center sm:px-6 sm:py-10">
+            <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">For freshmen and visitors</p>
+            <h1 className="mt-4 text-4xl leading-[1.1] font-bold tracking-[-0.035em] text-balance sm:text-5xl lg:text-[3.5rem]">
+              <span className="text-foreground">Got Questions?</span>{" "}
+              <span className="text-primary sm:block">Ask CECT Agent.</span>
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Get quick answers about admissions, enrollment, programs, campus offices, policies, announcements, and university
-              services.
+              Your AI-powered campus companion, making university information easier to find, understand, and explore.
             </p>
 
             <div className="mt-9 w-full text-left">
@@ -67,20 +67,12 @@ export default async function LandingPage() {
                 </Link>{" "}
                 to save your conversations.
               </p>
-            ) : remaining === GUEST_QUESTION_LIMIT ? (
-              <p className="mt-5 text-sm text-muted-foreground">
-                {GUEST_QUESTION_LIMIT} questions free.{" "}
-                <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
-                  Sign up
-                </Link>{" "}
-                to continue and save your chats.
-              </p>
             ) : null}
           </div>
         </section>
 
         {/* How it works */}
-        <section id="how-it-works" className="scroll-mt-20">
+        <section id="how-it-works" className="scroll-mt-28 bg-white">
           <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-semibold tracking-tight">Built to guide, not to guess</h2>
@@ -100,42 +92,50 @@ export default async function LandingPage() {
         </section>
 
         {/* Verified sources */}
-        <section id="sources" className="scroll-mt-20 border-t bg-[var(--canvas)]">
-          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+        <section id="sources" className="scroll-mt-28 border-t bg-white">
+          <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-semibold tracking-tight">Verified sources</h2>
+              <h2 className="text-3xl font-semibold tracking-tight">Reliable sources</h2>
               <p className="mt-3 leading-relaxed text-muted-foreground">
                 University staff decide what {assistantName} knows. Guides are reviewed before they are published, and
                 every school-specific answer shows where it came from.
               </p>
             </div>
-            <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {SOURCES.map(({ icon: Icon, name, use }) => (
-                <li key={name} className="rounded-lg border bg-background p-5 shadow-[0_1px_2px_oklch(0.3_0.05_260/0.05)]">
-                  <span className="flex size-9 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                    <Icon className="size-4" aria-hidden="true" />
-                  </span>
-                  <p className="mt-4 font-medium">{name}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{use}</p>
+            <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {SOURCES.map(({ image, name, use }) => (
+                <li key={name} className="grid h-[420px] grid-rows-[3fr_2fr] rounded-[20px] border border-slate-200/80 bg-white shadow-[0_6px_24px_-12px_oklch(0.24_0.07_264/0.18)]">
+                  <div className="relative min-h-0">
+                    <Image
+                      src={image}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1280px) 290px, (min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-contain p-3"
+                    />
+                  </div>
+                  <div className="px-6 pt-2 pb-6">
+                    <h3 className="min-h-13 text-lg leading-[1.45] font-semibold tracking-[-0.02em] text-foreground">{name}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{use}</p>
+                  </div>
                 </li>
               ))}
             </ul>
             <p className="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
-              When no verified source exists, it says so:{" "}
-              <span className="text-foreground">“I couldn&apos;t find a verified university source for this yet.”</span>
+              When no reliable source exists, it says so:{" "}
+              <span className="text-foreground">“I couldn&apos;t find a reliable university source for this yet.”</span>
             </p>
           </div>
         </section>
 
         {/* About */}
-        <section id="about" className="scroll-mt-20 border-t">
+        <section id="about" className="scroll-mt-28 border-t bg-white">
           <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-16 lg:py-24">
             <div>
               <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">About</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">About {assistantName}</h2>
               <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">
                 {assistantName} is an AI-powered university information and process navigator designed primarily for
-                incoming freshmen and campus visitors. It turns admission steps, policies, campus information and
+                freshmen and campus visitors. It turns admission steps, policies, campus information and
                 official references into clear guidance that is easier to understand and follow.
               </p>
             </div>

@@ -70,7 +70,7 @@ export function ExampleAnswer() {
       </div>
 
       <figcaption className="border-t px-5 py-2.5 text-xs text-muted-foreground">
-        Example of the answer format. Real answers cite the university&apos;s verified sources.
+        Example of the answer format. Real answers cite the university&apos;s reliable sources.
       </figcaption>
     </figure>
   )
