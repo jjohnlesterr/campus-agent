@@ -74,7 +74,7 @@ test('a guest gets 3 successful questions, then the sign-up gate', async () => {
   const fourth = await askPublic('Are there upcoming campus events?')
   assert.equal(fourth.ok, false)
   assert.equal(fourth.limitReached, true)
-  assert.match(fourth.error, /Create an account to continue/)
+  assert.match(fourth.error, /Create an account or sign in to continue chatting/)
   assert.equal(aiCalls(), 3) // no AI call once the limit is reached
 })
 

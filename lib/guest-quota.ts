@@ -11,7 +11,7 @@ import { cookies } from "next/headers"
 export const GUEST_QUESTION_LIMIT = 3
 
 export const GUEST_LIMIT_MESSAGE =
-  "You’ve used your free questions. Create an account to continue using Campus Agent and save your conversations."
+  "You've reached the 3-question limit. Create an account or sign in to continue chatting."
 
 const COOKIE = "ca_guest"
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 90
