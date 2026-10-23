@@ -27,6 +27,7 @@ export function PublicAsk({ suggestions, initialRemaining }: { suggestions: stri
   const limitReached = remaining === 0
 
   async function ask(question: string) {
+    if (busy || limitReached) return false
     const id = Date.now()
     const update = (patch: Partial<Turn>) => setTurns((all) => all.map((t) => (t.id === id ? { ...t, ...patch } : t)))
     setBusy(true)
@@ -52,25 +53,25 @@ export function PublicAsk({ suggestions, initialRemaining }: { suggestions: stri
 
   return (
     <div className="flex flex-col gap-4">
-      {limitReached ? (
-        <SignupGate />
-      ) : (
-        <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
+        <fieldset disabled={limitReached} className="min-w-0 [&_textarea:disabled]:cursor-not-allowed [&_textarea:disabled]:opacity-60">
           <QuestionComposer
             size="large"
             centerSuggestions
             placeholder="Ask about admission, enrollment, programs, or campus offices..."
-            suggestions={turns.length === 0 ? suggestions : []}
+            suggestions={suggestions}
             onAsk={ask}
             busy={busy}
           />
-          {remaining !== null && (
-            <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
-              {remaining === 3 ? "You can ask up to 3 questions before creating an account." : remainingLabel(remaining)}
-            </p>
-          )}
-        </div>
-      )}
+        </fieldset>
+        {limitReached ? (
+          <SignupGate />
+        ) : remaining !== null ? (
+          <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+            {remaining === 3 ? "You can ask up to 3 questions before creating an account." : remainingLabel(remaining)}
+          </p>
+        ) : null}
+      </div>
 
       {turns.map((turn) => {
         const pending = !turn.answer && !turn.error
@@ -113,11 +114,11 @@ function SignupGate() {
     <p role="status" className="px-1 text-sm leading-relaxed text-muted-foreground">
       You&apos;ve reached the 3-question limit.{" "}
       <Link href="/signup" className="font-medium text-primary underline underline-offset-4">
-        Create account
+        Create an account
       </Link>{" "}
       or{" "}
       <Link href="/login" className="font-medium text-primary underline underline-offset-4">
-        Sign in
+        sign in
       </Link>{" "}
       to continue chatting.
     </p>
