@@ -1,5 +1,6 @@
 import "server-only"
 
+import { SOURCE_UPDATES } from "@/lib/knowledge/source-precedence"
 import { pageLabel, readGuideReference } from "@/lib/knowledge/topics"
 import { createClient } from "@/lib/supabase/server"
 import type { DbClient } from "@/lib/supabase/types"
@@ -18,6 +19,45 @@ export type KnowledgePassage = {
   sourceLabel: string
   /** Original notice link (announcement passages only). */
   url?: string
+}
+
+/**
+ * Read designated updates independently of full-text rank: a wordier older source
+ * must not crowd them out of the search hits. Reads use the caller's client/RLS.
+ * Only visible, non-archived sources and Published sections qualify. The model
+ * checks direct relevance before using an update, not merely shared keywords.
+ */
+export async function designatedUpdatePassages(supabase?: DbClient): Promise<KnowledgePassage[]> {
+  supabase ??= await createClient()
+  const { data: sources, error: sourceError } = await supabase.from("documents")
+    .select("id,title").in("id", SOURCE_UPDATES.map((s) => s.sourceId)).neq("status", "archived")
+  if (sourceError) throw new Error(`Source update lookup failed: ${sourceError.message}`)
+  if (!sources?.length) return []
+  const titles = new Map(sources.map((s) => [s.id, s.title]))
+  const passages: KnowledgePassage[] = []
+  // Paginate rather than silently dropping a later section at the API row limit.
+  for (let offset = 0; ; offset += 100) {
+    const { data, error } = await supabase.from("guidelines")
+      .select("id,title,source_document_id,source_reference,content,description")
+      .in("source_document_id", [...titles.keys()]).eq("status", "published")
+      .order("id").range(offset, offset + 99)
+    if (error) throw new Error(`Source update sections failed: ${error.message}`)
+    for (const row of data ?? []) {
+      const title = titles.get(row.source_document_id ?? "")
+      if (!title) continue
+      const pages = readGuideReference(row.source_reference)?.pages ?? []
+      passages.push({
+        sectionId: row.id,
+        documentTitle: title,
+        sectionTitle: row.title,
+        pageNumber: pages[0] ?? null,
+        sourceLabel: `${title} — ${pages.length ? pageLabel(pages) : row.title}`,
+        content: row.content?.trim() || row.description?.trim() || "",
+        rank: 0,
+      })
+    }
+    if (!data || data.length < 100) return passages.filter((p) => p.content)
+  }
 }
 
 /**

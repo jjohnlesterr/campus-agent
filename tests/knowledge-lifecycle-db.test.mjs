@@ -53,6 +53,7 @@ function fakeClaude(request) {
 const locationMatch = load('lib/campus/location-match.ts')
 const withLocation = { '@/lib/campus/location-match': locationMatch }
 const search = load('lib/rag/search.ts', {
+  '@/lib/knowledge/source-precedence': load('lib/knowledge/source-precedence.ts'),
   'server-only': {},
   '@/lib/knowledge/topics': load('lib/knowledge/topics.ts', { '@/lib/knowledge/tables': load('lib/knowledge/tables.ts'), '@/lib/rag/extract': {} }),
   '@/lib/supabase/server': { createClient: async () => { throw new Error('public answers never use the session client') } },
@@ -77,7 +78,7 @@ const agent = load('lib/ai/campus-agent.ts', {
   '@/lib/supabase/public': { createPublicClient: () => publicClient },
   '@/lib/supabase/server': { createClient: async () => publicClient },
   '@/lib/supabase/types': {},
-  '@/lib/rag/search': search,
+  '@/lib/rag/search': { ...search, designatedUpdatePassages: async () => [] },
 })
 const ask = (question) => agent.answerQuestion(question, { audience: 'public' })
 

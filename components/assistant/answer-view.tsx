@@ -62,15 +62,10 @@ function SourceLine({ sources }: { sources: AnswerSource[] }) {
   )
 }
 
-// Renders a Campus Agent answer: summary, steps, requirements, details,
-// what the handbook doesn't cover, and the source line.
-// variant="public" (landing page): no "Not covered by the handbook" box. Gaps are not
-// filled in — the answer simply doesn't claim them — and partial answers end with a
-// neutral pointer to the responsible office. The student chat keeps the full view.
-const PUBLIC_CONFIRM_NOTE = "For exact procedures or office-specific instructions, please confirm with the responsible university office."
+// Show supported details and specific omissions in the answer's own language,
+// followed by citations. Complete answers need no limitation note.
 
-export function AnswerView({ answer, variant = "student" }: { answer: StructuredAnswer; variant?: "student" | "public" }) {
-  const isPublic = variant === "public"
+export function AnswerView({ answer }: { answer: StructuredAnswer; variant?: "student" | "public" }) {
   if (answer.status === "error") {
     return (
       <p className="flex items-start gap-2 text-destructive">
@@ -143,22 +138,12 @@ export function AnswerView({ answer, variant = "student" }: { answer: Structured
           <SimpleMarkdown text={answer.details} />
         ))}
 
-      {answer.gaps && !isPublic && (
-        <div className="flex items-start gap-2.5 rounded-lg border bg-muted/60 px-3.5 py-3 text-sm">
-          <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <p>
-            <span className="font-medium">Not covered by the handbook: </span>
-            {answer.gaps}
-          </p>
-        </div>
+      {answer.status === "partial" && answer.gaps && (
+        <p className="text-sm text-muted-foreground">{answer.gaps}</p>
       )}
 
       <CampusMapLink location={answer.location} />
       <AnswerLink link={answer.link} />
-
-      {isPublic && (answer.gaps || answer.status === "partial") && (
-        <p className="text-sm text-muted-foreground">{PUBLIC_CONFIRM_NOTE}</p>
-      )}
 
       <SourceLine sources={answer.sources} />
     </div>

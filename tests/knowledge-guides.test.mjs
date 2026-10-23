@@ -320,7 +320,7 @@ test('a text source is organized into Draft sections like a PDF, without page re
   assert(state.guides.every(g => g.status === 'draft' && g.source_document_id === sourceId))
   assert(state.guides.every(g => topics.readGuideReference(g.source_reference).pages.length === 0))
 })
-const search = load('lib/rag/search.ts', { 'server-only': {}, '@/lib/knowledge/topics': topics, '@/lib/supabase/server': { createClient: async () => { throw Error('use the passed client') } } })
+const search = load('lib/rag/search.ts', { '@/lib/knowledge/source-precedence': load('lib/knowledge/source-precedence.ts'), 'server-only': {}, '@/lib/knowledge/topics': topics, '@/lib/supabase/server': { createClient: async () => { throw Error('use the passed client') } } })
 test('retrieval cites the source title and preserved pages, or the manual entry and its note', async () => {
   const rows = [
     { section_id: 'a', title: 'Graduation honors', source_id: sourceId, source_title: 'Information WUP', source_reference: JSON.stringify({ version: 1, topic: 'graduation honors', chunkIds: [], pages: [1, 2] }), content: 'Honors text', rank: 2 },

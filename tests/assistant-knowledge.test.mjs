@@ -26,7 +26,7 @@ const ADOBO = { sectionId: 'a', documentTitle: 'Adobong Manok Recipe', pageNumbe
 const BULLYING = { sectionId: 'b', documentTitle: 'WUP Handbook -Section 3', pageNumber: null, sectionTitle: 'Anti-Bullying Act (RA 10627)', content: 'Bullying is any severe or repeated use of…', rank: 0.4, sourceLabel: 'WUP Handbook -Section 3' }
 
 /** answerQuestion with retrieval and Claude replaced: `passages` are what search returns, `reply` is Claude's structured output. */
-function setup({ passages = [], reply = null, overrides = {} } = {}) {
+function setup({ passages = [], updates = [], reply = null, overrides = {} } = {}) {
   const searches = []
   const claudeCalls = []
   const stub = {}
@@ -35,7 +35,7 @@ function setup({ passages = [], reply = null, overrides = {} } = {}) {
     '@/lib/ai/answer-types': load('lib/ai/answer-types.ts'),
     '@/lib/ai/anthropic': {
       CLAUDE_MODEL: 'test-model',
-      getAnthropic: () => ({ messages: { parse: async (args) => { claudeCalls.push(args); return { stop_reason: 'end_turn', parsed_output: reply, usage: { input_tokens: 1, output_tokens: 1 } } } } }),
+      getAnthropic: () => ({ messages: { parse: async (args) => { claudeCalls.push(args); return { stop_reason: 'end_turn', parsed_output: typeof reply === 'function' ? reply(args, claudeCalls.length) : reply, usage: { input_tokens: 1, output_tokens: 1 } } } } }),
     },
     '@/lib/ai/guardrail': guardrail,
     '@/lib/ai/language': load('lib/ai/language.ts', withLocation),
@@ -52,7 +52,7 @@ function setup({ passages = [], reply = null, overrides = {} } = {}) {
     '@/lib/supabase/public': { createPublicClient: () => ({}) },
     '@/lib/supabase/server': { createClient: async () => ({}) },
     '@/lib/supabase/types': stub,
-    '@/lib/rag/search': { searchKnowledge: async (q) => { searches.push(q); return passages } },
+    '@/lib/rag/search': { designatedUpdatePassages: async () => updates, searchKnowledge: async (q) => { searches.push(q); return passages } },
     ...overrides,
   })
   return { ask: (q) => agent.answerQuestion(q, { audience: 'public' }), searches, claudeCalls }
@@ -171,4 +171,120 @@ test('announcement questions skip the handbook and legend prefetch, and still fa
   assert.equal(fallback.searches, 1)
   assert.equal(fallback.legend, true)
   assert.equal(fallback.answer.status, 'not_found')
+})
+
+// Synthetic source text modeled on the published FAQ. No title/filename routing:
+// `updates` represents the separately retrieved, explicitly designated source.
+const FAQ_TITLE = 'CECT Agent — Frequently Asked Questions and University Information'
+const faq = (sectionId, sectionTitle, pageNumber, content) => ({ sectionId, documentTitle: FAQ_TITLE, sectionTitle, pageNumber, content, rank: 0, sourceLabel: `${FAQ_TITLE} — Page ${pageNumber}` })
+const COG = faq('cog', 'Documents and Academic Requests', 2, "Certificate of Grades: Visit the Treasurer's Office, pay the \u20b1100 COG processing fee, then request the document at the Registrar's Office. Same-day or next-day release depending on request time.")
+const SCHOLARSHIP = faq('scholarship', 'Academic Information and Scholarships', 1, 'Academic scholars must maintain grades of 1.75 or better (1.00–1.75).')
+const ID_REPLACEMENT = faq('id', 'University Policies and Student Rules', 1, 'For a lost school ID, visit OSA, request a replacement form, prepare an Affidavit of Loss, pay the applicable fee and follow OSA instructions. The exact replacement fee is not specified.')
+const CECT_LOCATION = faq('cect', 'CECT Facilities and Classrooms', 1, 'IT: Second floor of the Computer Science Building. Engineering programs: First floor of the Engineering Building.')
+const OLD_COG = { ...BULLYING, sectionTitle: 'Document fees', content: 'Print-out of Grades: \u20b135.' }
+const INC = { ...BULLYING, sectionTitle: 'INC completion', sourceLabel: 'WUP Handbook — Page 2', pageNumber: 2, content: 'Complete INC within one academic year; see your dean. A completion fee is charged.' }
+
+test('COG uses only the designated FAQ: \u20b1100, Treasurer then Registrar, same-day/next-day, accurate page citation', async () => {
+  const { ask, claudeCalls } = setup({ updates: [COG], passages: [OLD_COG], reply: (request) => {
+    const context = request.messages[0].content
+    assert.match(context, /\u20b1100/)
+    assert.doesNotMatch(context, /\u20b135|WUP Handbook/)
+    assert.match(request.system, /explicitly designated university updates/)
+    return reply({ coverage: 'full', summary: '\u20b1100 ang processing fee para sa Certificate of Grades.', steps: ["Magbayad sa Treasurer's Office.", "Humiling ng Certificate of Grades sa Registrar's Office."], details: 'Maaaring makuha sa araw ding iyon o sa susunod na araw, depende sa oras ng request.', source_ids: [1] })
+  } })
+  const answer = await ask('Paano kumuha ng Certificate of Grades at magkano ang bayad?')
+  assert.equal(claudeCalls.length, 1)
+  assert.equal(answer.status, 'answered')
+  assert.equal(answer.gaps, '')
+  assert.deepEqual(answer.sources, [{ label: COG.sourceLabel, documentTitle: FAQ_TITLE, pageNumber: 2, sectionTitle: COG.sectionTitle }])
+  assert.doesNotMatch(answer.text, /\u20b135|Not covered|discrepancy/i)
+})
+
+test('academic scholarship uses the FAQ 1.75-or-better requirement, even if older text ranks higher', async () => {
+  const { ask, claudeCalls } = setup({ updates: [SCHOLARSHIP], passages: [{ ...BULLYING, rank: 999, content: 'Maintain 2.00 for scholarship.' }], reply: (request) => {
+    assert.match(request.messages[0].content, /1.75/)
+    assert.doesNotMatch(request.messages[0].content, /2.00/)
+    return reply({ coverage: 'full', summary: 'Academic scholars must maintain grades of 1.75 or better.', source_ids: [1] })
+  } })
+  const answer = await ask('What grade must I maintain for an academic scholarship?')
+  assert.equal(answer.status, 'answered')
+  assert.equal(answer.sources[0].pageNumber, 1)
+  assert.equal(claudeCalls.length, 1)
+})
+
+test('partial ID replacement uses all supported FAQ steps without borrowing an older exact fee', async () => {
+  const steps = ['Visit OSA.', 'Request the replacement form.', 'Prepare an Affidavit of Loss.', 'Pay the applicable fee and follow OSA instructions.']
+  const { ask } = setup({ updates: [ID_REPLACEMENT], passages: [{ ...BULLYING, content: 'ID replacement fee: \u20b1200.' }], reply: (request) => {
+    assert.doesNotMatch(request.messages[0].content, /\u20b1200/)
+    return reply({ summary: 'Request an ID replacement through OSA.', steps, gaps: 'The available university information does not specify the exact replacement fee.', source_ids: [1] })
+  } })
+  const answer = await ask('How do I replace my lost student ID and what is the exact fee?')
+  assert.equal(answer.status, 'partial')
+  assert.deepEqual(answer.steps, steps)
+  assert.match(answer.text, /does not specify the exact replacement fee/)
+  assert.doesNotMatch(answer.text, /\u20b1200|Not covered by the handbook/)
+  assert.equal(answer.sources[0].documentTitle, FAQ_TITLE)
+})
+
+test('CECT FAQ locations take precedence over a matching older campus directory answer', async () => {
+  const { overrides } = lookups({ location: structured('CECT: old building'), contents: null })
+  const { ask, claudeCalls } = setup({ updates: [CECT_LOCATION], overrides, reply: reply({ coverage: 'full', summary: CECT_LOCATION.content, source_ids: [1] }) })
+  const answer = await ask('Where is the CECT office?')
+  assert.equal(answer.summary, CECT_LOCATION.content)
+  assert.equal(answer.sources[0].documentTitle, FAQ_TITLE)
+  assert.equal(claudeCalls.length, 1)
+})
+
+test('an unrelated FAQ grade entry does not supersede INC completion; handbook fallback keeps its citation', async () => {
+  const { ask, claudeCalls } = setup({ updates: [SCHOLARSHIP], passages: [SCHOLARSHIP, INC], reply: (request, call) => {
+    if (call === 1) {
+      assert.match(request.system, /a shared word such as "grade"/)
+      return reply({ coverage: 'none' })
+    }
+    assert.match(request.messages[0].content, /one academic year/)
+    assert.doesNotMatch(request.messages[0].content, /1.75|Frequently Asked/)
+    return reply({ coverage: 'full', summary: INC.content, source_ids: [1] })
+  } })
+  const answer = await ask('How do I complete an INC grade?')
+  assert.equal(claudeCalls.length, 2)
+  assert.equal(answer.status, 'answered')
+  assert.deepEqual(answer.sources.map(s => s.label), [INC.sourceLabel])
+  assert.doesNotMatch(answer.text, /1.75|Frequently Asked/)
+  assert.deepEqual(answer.usage, { inputTokens: 2, outputTokens: 2 })
+})
+
+test('an unrelated FAQ leaves the existing directory fallback intact', async () => {
+  const { overrides } = lookups({ location: structured('Registrar: Building 1') })
+  const { ask } = setup({ updates: [SCHOLARSHIP], overrides, reply: reply({ coverage: 'none' }) })
+  const answer = await ask('Where is the Registrar?')
+  assert.equal(answer.summary, 'Registrar: Building 1')
+  assert.deepEqual(answer.usage, { inputTokens: 1, outputTokens: 1 })
+})
+
+test('genuinely unsupported questions retain the no-source fallback and never cite unrelated FAQ sections', async () => {
+  const { ask, claudeCalls } = setup({ updates: [COG], passages: [BULLYING], reply: reply({ coverage: 'none', source_ids: [1] }) })
+  const answer = await ask('What are the requirements for an underwater archaeology scholarship?')
+  assert.equal(answer.status, 'not_found')
+  assert.deepEqual(answer.sources, [])
+  assert.match(answer.summary, /couldn't find a reliable university source/)
+  assert.equal(claudeCalls.length, 2)
+})
+
+test('a failed update response never falls through to potentially outdated information', async () => {
+  const { ask, claudeCalls } = setup({ updates: [COG], passages: [OLD_COG], reply: null })
+  assert.equal((await ask('What is the COG fee?')).status, 'error')
+  assert.equal(claudeCalls.length, 1)
+})
+
+test('an update answer with only invented citation ids is rejected instead of returning unsupported facts', async () => {
+  const { ask } = setup({ updates: [COG], passages: [OLD_COG], reply: reply({ coverage: 'full', summary: 'Unsupported.', source_ids: [99] }) })
+  const answer = await ask('What is the COG fee?')
+  assert.equal(answer.status, 'error')
+  assert.deepEqual(answer.sources, [])
+})
+
+test('unknown citation ids are dropped while the real FAQ section and page are preserved', async () => {
+  const { ask } = setup({ updates: [COG, SCHOLARSHIP], reply: reply({ coverage: 'full', summary: SCHOLARSHIP.content, source_ids: [2, 99, 2] }) })
+  const answer = await ask('What grade must I maintain as an academic scholar?')
+  assert.deepEqual(answer.sources.map(s => [s.sectionTitle, s.pageNumber]), [[SCHOLARSHIP.sectionTitle, 1]])
 })

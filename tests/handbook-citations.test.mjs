@@ -76,3 +76,19 @@ test('citations only come from retrieved passages: unknown ids are dropped', () 
   assert.equal(answer.status, 'answered')
   assert.deepEqual(answer.sources.map((s) => s.label), ['WUP Handbook -Section 1'])
 })
+
+test('complete multi-source knowledge answers have no generic limitation note even if the model supplies stale gaps', () => {
+  const answer = handbookAnswer(reply({ coverage: 'full', summary: 'The fee is \u20b1100.', gaps: 'Not covered by the handbook.', source_ids: [1] }), passages, 'en')
+  assert.equal(answer.status, 'answered')
+  assert.equal(answer.gaps, '')
+  assert.doesNotMatch(answer.text, /Not covered|handbook:/i)
+})
+
+test('partial answers retain supported facts and a specific natural omission, distinct from not-found', () => {
+  const answer = handbookAnswer(reply({ summary: 'Visit the Office of Student Affairs for the certificate.', gaps: 'The available university information does not specify the complete procedure.', source_ids: [2] }), passages, 'en')
+  assert.equal(answer.status, 'partial')
+  assert.match(answer.text, /Office of Student Affairs/)
+  assert.match(answer.text, /does not specify the complete procedure/)
+  assert.doesNotMatch(answer.text, /Not covered by the handbook/)
+  assert.equal(answer.sources.length, 1)
+})

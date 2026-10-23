@@ -46,7 +46,7 @@ export function answerToMarkdown(a: StructuredAnswer) {
   if (a.details) {
     parts.push(a.steps.length || a.requirements.length ? `**Good to know**\n${a.details}` : a.details)
   }
-  if (a.gaps) parts.push(`**Not covered by the handbook:** ${a.gaps}`)
+  if (a.status === "partial" && a.gaps) parts.push(a.gaps)
   if (a.sources.length) parts.push(`Source: ${a.sources.map((s) => (s.url ? `${s.label} (${s.url})` : s.label)).join("; ")}`)
   return parts.filter(Boolean).join("\n\n")
 }
