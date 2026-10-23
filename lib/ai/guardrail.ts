@@ -102,6 +102,28 @@ const OFF_TOPIC_PATTERNS = [
   /\b(?:girlfriend|boyfriend|crush|jowa)\b/,
 ]
 
+// Question words too common to tie a message to a knowledge title.
+const TITLE_STOPWORDS = new Set([
+  "what", "when", "where", "which", "does", "give", "need", "needed", "there", "about", "please", "with", "from",
+  "this", "that", "have", "tell", "know", "want", "make", "your", "would", "could", "should", "paano", "saan",
+  "kailan", "anong", "yung", "naman", "lang",
+])
+
+function titleWords(text: string) {
+  return normalize(text).split(" ").filter((w) => w.length >= 4 && !TITLE_STOPWORDS.has(w))
+}
+
+/**
+ * True when a Published knowledge title shares a word with the message ("How to cook
+ * adobong manok?" and a source titled "Adobong Manok Recipe"). The off-topic shortcut
+ * uses it so it never hides knowledge an admin has published. A shared prefix counts
+ * ("adobo" / "adobong", "cook" / "cooking").
+ */
+export function mentionsTitle(message: string, titles: string[]) {
+  const asked = titleWords(message)
+  return titles.some((title) => titleWords(title).some((t) => asked.some((a) => t.startsWith(a) || a.startsWith(t))))
+}
+
 /** Keyboard-mash words: long, few vowels or long consonant runs or one letter repeated. */
 function looksLikeGibberish(token: string) {
   if (/\d/.test(token)) return false

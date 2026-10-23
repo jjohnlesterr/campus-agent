@@ -179,8 +179,9 @@ Admin access is role-protected and is not exposed as a public admin login.
 
 ### Environment
 
-Besides the Supabase and AI keys, the guest question limit signs its cookie with `GUEST_SESSION_SECRET` (server-only). If it isn't set, a key derived from `ANTHROPIC_API_KEY` is used.
+`.env.example` lists every variable. Copy it to `.env.local` for development; set production values in Vercel.
 
+Besides the Supabase and AI keys, the guest question limit signs its cookie with `GUEST_SESSION_SECRET` (server-only). If it isn't set, a key derived from `ANTHROPIC_API_KEY` is used.
 If Supabase Auth has **Confirm email** enabled, new users are asked to open the confirmation link (it returns to `/auth/confirm`). Otherwise they go straight to `/app`. Set `NEXT_PUBLIC_APP_URL` in production so confirmation links point to the deployed site.
 
 Run tests with `npm test`.

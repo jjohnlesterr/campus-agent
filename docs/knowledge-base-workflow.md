@@ -45,7 +45,7 @@ Source actions: View PDF, Replace file (not for text sources), Analyze / Re-anal
 
 ## Student retrieval
 
-`lib/rag/search.ts` calls `search_knowledge` (migration `20261006032400_knowledge_library.sql`): PostgreSQL full-text search over Published sections (title weighted above summary + content), under the caller's RLS, so public visitors only see Published + public sections. Citations use the source title and the section's pages (`Information WUP — Pages 1, 2`); manual entries cite their title and reference note. `private.knowledge_source_title` returns the source title for citations even while a source is being re-analyzed, and returns nothing for archived sources.
+`lib/rag/search.ts` calls `search_knowledge` (migration `20261006032400_knowledge_library.sql`): PostgreSQL full-text search over Published sections (title weighted above summary + content), under the caller's RLS, so public visitors only see Published + public sections. Since `20261023120000_search_knowledge_source_titles.sql` a section is also found by its source's title and reference label (weighted like section text), so "adobong manok" finds the "Ingredients" section of a source titled "Adobong Manok Recipe"; archived sources add no terms. Rollback: `supabase/rollbacks/20261023120000_search_knowledge_source_titles.down.sql`. Citations use the source title and the section's pages (`Information WUP — Pages 1, 2`); manual entries cite their title and reference note. `private.knowledge_source_title` returns the source title for citations even while a source is being re-analyzed, and returns nothing for archived sources.
 
 The migration backfilled `content` for existing sections from their linked extracted text, so current answers keep the same wording and page citations. `search_document_chunks` is unused but kept for rollback.
 
@@ -68,5 +68,7 @@ npx.cmd eslint app components lib tests
 node --test tests/*.test.mjs
 npx.cmd next build
 ```
+
+`tests/knowledge-search-db.test.mjs` and `tests/knowledge-lifecycle-db.test.mjs` run against an isolated in-process Postgres (PGlite, `tests/support/migrated-db.mjs`) with every migration applied: `search_knowledge` under the anon role's RLS, and the create → publish → ask → edit → unpublish → archive → delete lifecycle through the real answer pipeline. They never connect to Supabase.
 
 The optional `CAMPUS_KB_SNAPSHOT` environment variable points to a local JSON fixture shaped as `{ source, chunks }` for checking topic grouping against a snapshot of a real source. Database writes in tests use an in-memory mock; Claude is mocked.

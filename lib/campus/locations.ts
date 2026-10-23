@@ -65,9 +65,12 @@ export async function getCampusDirectory(supabase: DbClient, { includeArchived =
 
 /** Every active building and place, in the shape the location matcher uses. */
 async function getMapPlaces(supabase: DbClient): Promise<MapPlace[]> {
-  const directory = await getCampusDirectory(supabase)
   // The legacy building rows carry aliases (e.g. "gym", "hospital"); keep them searchable.
-  const { data: buildingRows } = await supabase.from("campus_locations").select("building_id, aliases").eq("location_type", "building").eq("is_active", true)
+  // Independent of the directory, so both load at once.
+  const [directory, { data: buildingRows }] = await Promise.all([
+    getCampusDirectory(supabase),
+    supabase.from("campus_locations").select("building_id, aliases").eq("location_type", "building").eq("is_active", true),
+  ])
   const buildingAliases = new Map((buildingRows ?? []).map((r) => [r.building_id, r.aliases]))
   return directory.flatMap((b) => [
     { name: b.name, building_name: b.name, building_number: b.number, floor: null, aliases: buildingAliases.get(b.id) ?? [], kind: "building" as const },
