@@ -93,3 +93,11 @@ test('an existing email gets a clear message', async () => {
   const { result } = await submit(VALID)
   assert.match(result.fieldErrors.email, /already exists/)
 })
+
+test('an unreachable Supabase Auth service gets an outage message, not a generic failure', async () => {
+  const { AuthRetryableFetchError } = nodeRequire('@supabase/supabase-js')
+  const { submit } = setup({ signUpError: new AuthRetryableFetchError('fetch failed', 0) })
+  const { result } = await submit(VALID)
+  assert.match(result.error, /can't reach the account service/)
+  assert.equal(result.fieldErrors, undefined)
+})

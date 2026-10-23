@@ -1,5 +1,6 @@
 "use server"
 
+import { isAuthRetryableFetchError } from "@supabase/supabase-js"
 import { redirect } from "next/navigation"
 import { z } from "zod"
 
@@ -15,6 +16,9 @@ export type AuthFormState = { error?: string; fieldErrors?: Record<string, strin
 
 export type SignupState = (NonNullable<AuthFormState> & { confirmEmail?: undefined }) | { confirmEmail: string } | undefined
 
+// Supabase Auth couldn't be reached (network failure, DNS, paused project, 502–504). This is
+// an outage, not a problem with what the user typed, so say so instead of blaming the form.
+const AUTH_UNAVAILABLE = "Campus Agent can't reach the account service right now. Please try again in a few minutes."
 const signupSchema = z
   .object({
     full_name: z.string().trim().min(2, "Enter your full name.").max(120, "Use 120 characters or fewer."),
@@ -68,7 +72,11 @@ export async function signup(_prev: SignupState, formData: FormData): Promise<Si
     if (error.code === "over_email_send_rate_limit" || error.status === 429) {
       return { error: "Too many sign-up attempts right now. Please wait a few minutes and try again." }
     }
-    console.error("signup failed", error.code)
+    if (isAuthRetryableFetchError(error)) {
+      console.error("signup failed: Supabase Auth unreachable", error.status)
+      return { error: AUTH_UNAVAILABLE }
+    }
+    console.error("signup failed", error.code ?? error.name, error.status)
     return { error: "Your account could not be created. Please try again." }
   }
 
@@ -97,6 +105,10 @@ export async function login(_prev: AuthFormState, formData: FormData): Promise<A
   const trimmed = password.trim()
   if (error?.code === "invalid_credentials" && trimmed && trimmed !== password) {
     ;({ data, error } = await supabase.auth.signInWithPassword({ email, password: trimmed }))
+  }
+  if (isAuthRetryableFetchError(error)) {
+    console.error("login failed: Supabase Auth unreachable", error.status)
+    return { error: AUTH_UNAVAILABLE }
   }
   if (error || !data.user) {
     return {

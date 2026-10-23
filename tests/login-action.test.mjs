@@ -19,12 +19,13 @@ function load(relative, mocks) {
 
 // Supabase Auth stand-in: one account, exact password only (like the real service).
 const ACCOUNT = { email: 'student@school.edu', password: 'Ab3dEf6hJk9m', id: 'u1', profile: { role: 'user', must_change_password: true } }
-function setup() {
+function setup({ signInError = null } = {}) {
   const attempts = []
   const supabase = {
     auth: {
       async signInWithPassword({ email, password }) {
         attempts.push({ email, password })
+        if (signInError) return { data: { user: null }, error: signInError }
         const ok = email.toLowerCase() === ACCOUNT.email && password === ACCOUNT.password
         return ok ? { data: { user: { id: ACCOUNT.id } }, error: null } : { data: { user: null }, error: { code: 'invalid_credentials' } }
       },
@@ -67,4 +68,12 @@ test('wrong password still shows the friendly error, with no retry when nothing 
   const { submit, attempts } = setup()
   assert.deepEqual(await submit('student@school.edu', 'wrong-password'), { result: { error: 'Incorrect email or password.' } })
   assert.equal(attempts.length, 1)
+})
+
+test('an unreachable Supabase Auth service is not reported as a wrong password', async () => {
+  const { AuthRetryableFetchError } = nodeRequire('@supabase/supabase-js')
+  const { submit, attempts } = setup({ signInError: new AuthRetryableFetchError('fetch failed', 0) })
+  const { result } = await submit('student@school.edu', 'Ab3dEf6hJk9m ')
+  assert.match(result.error, /can't reach the account service/)
+  assert.equal(attempts.length, 1) // no trimmed-password retry during an outage
 })
