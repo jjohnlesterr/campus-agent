@@ -177,13 +177,13 @@ export function SourceUploader({ collectionId, collectionType, open, onOpenChang
         }}
       >
 
-        <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 sm:max-w-lg" showCloseButton={!busy}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] grid-cols-1 gap-0 overflow-y-auto p-0 sm:max-w-lg" showCloseButton={!busy}>
           <DialogHeader className="border-b px-6 pt-5 pb-4">
             <DialogTitle className="text-base font-semibold">Upload PDF</DialogTitle>
             <DialogDescription>Upload a text-selectable PDF up to 25 MB. After upload, you can analyze it with AI to create draft knowledge sections for review.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={submit} className="flex flex-col gap-5 px-6 py-5" noValidate>
+          <form onSubmit={submit} className="flex min-w-0 flex-col gap-5 px-6 py-5" noValidate>
             <Field id="source-title" label="Title" hint="Shown in citations, e.g. “Student Handbook — Page 42”.">
               <Input
                 id="source-title"
