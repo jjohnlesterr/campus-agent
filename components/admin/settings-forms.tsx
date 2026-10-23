@@ -103,7 +103,7 @@ export function SettingsForm({ initial, timezones, logo }: { initial: SettingsVa
         <div className="flex flex-col gap-4 p-5">
           <p className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Campus Agent answers from published Knowledge Library content.
+            CECT Agent answers from published Knowledge Library content.
           </p>
           <div className="grid items-start gap-4 sm:grid-cols-2">
             <Field id="response_language" label="Default response language" hint="Auto replies in the language of each question." error={errors.response_language}>

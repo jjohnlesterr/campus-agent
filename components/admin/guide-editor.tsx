@@ -106,7 +106,7 @@ export function GuideEditor({ values, fromSource, paged, backHref, categories, o
         </p>
       )}
       {archived && (
-        <p className="rounded-md border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">This section is archived. Campus Agent and students don’t use it. Restore it as a Draft to edit and publish it again.</p>
+        <p className="rounded-md border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">This section is archived. CECT Agent and students don’t use it. Restore it as a Draft to edit and publish it again.</p>
       )}
 
       <fieldset disabled={pending || archived} className="flex min-w-0 flex-col gap-5">
@@ -132,7 +132,7 @@ export function GuideEditor({ values, fromSource, paged, backHref, categories, o
         <Field id="section-summary" label={fromSource ? "AI-generated summary" : "Summary"} optional hint="Short description shown on School Guides. Leave empty to use the start of the content.">
           <textarea id="section-summary" value={description} onChange={(e) => edited(setDescription)(e.target.value)} className={cn(textareaClass, "min-h-20")} maxLength={1000} aria-describedby="section-summary-hint" />
         </Field>
-        <Field id="section-content" label={fromSource ? "Extracted content" : "Content"} hint="Campus Agent answers only from this text once the section is Published.">
+        <Field id="section-content" label={fromSource ? "Extracted content" : "Content"} hint="CECT Agent answers only from this text once the section is Published.">
           <textarea id="section-content" value={content} onChange={(e) => edited(setContent)(e.target.value)} className={cn(textareaClass, "min-h-72 font-[inherit] leading-relaxed")} maxLength={20000} required aria-describedby="section-content-hint" />
         </Field>
         <Field id="section-office" label="Responsible office" optional hint={fromSource ? "Must be named in the extracted content." : undefined}>

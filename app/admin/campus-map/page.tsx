@@ -46,7 +46,7 @@ export default async function AdminCampusMapPage() {
     <div data-layout="wide" className="w-full min-w-0">
       <PageHeader
         title="Campus Map"
-        description="The campus map image, its legend, and the directory of buildings and offices that Campus Agent uses to answer “Where is…?”."
+        description="The campus map image, its legend, and the directory of buildings and offices that CECT Agent uses to answer “Where is…?”."
       />
 
       {map && signed?.signedUrl ? (

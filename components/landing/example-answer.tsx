@@ -14,7 +14,7 @@ const steps = [
 export function ExampleAnswer() {
   return (
     <figure
-      aria-label="Example of a Campus Agent answer"
+      aria-label="Example of a CECT Agent answer"
       className="overflow-hidden rounded-xl border bg-card text-sm shadow-[0_1px_2px_oklch(0.22_0.025_262/0.05),0_12px_32px_-12px_oklch(0.22_0.025_262/0.18)]"
     >
       <div className="flex items-center justify-between gap-3 border-b bg-muted/60 px-5 py-3">

@@ -20,12 +20,12 @@ const input = { fullName: 'Juan Dela Cruz', resetUrl: 'https://campus.example/au
 
 test('password reset email has the link and no password', () => {
   const { subject, text, html } = email.buildPasswordResetEmail(input)
-  assert.equal(subject, 'Reset your Campus Agent password')
+  assert.equal(subject, 'Reset your CECT Agent password')
   assert.ok(text.includes('Hello Juan Dela Cruz,'))
   assert.ok(text.includes(input.resetUrl))
   assert.ok(html.includes(`href="${input.resetUrl.replace(/&/g, '&amp;')}"`))
   assert.ok(!/temporary password/i.test(text), 'no password is ever included')
-  assert.ok(text.trimEnd().endsWith('Campus Agent'))
+  assert.ok(text.trimEnd().endsWith('CECT Agent'))
 })
 
 test('the temporary-password account email no longer exists', () => {
@@ -44,5 +44,5 @@ test('logo only from a public URL; otherwise a text wordmark', () => {
   assert.ok(withLogo.includes('<img src="https://campus.example/assets/logo.png"'))
   const wordmark = email.buildPasswordResetEmail(input).html
   assert.ok(!wordmark.includes('<img'))
-  assert.ok(wordmark.includes('Campus <span'))
+  assert.ok(wordmark.includes('CECT <span'))
 })

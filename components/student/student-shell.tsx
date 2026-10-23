@@ -78,7 +78,7 @@ export function StudentShell({
             </SheetContent>
           </Sheet>
           <Link href="/app" aria-label={`${assistantName} home`} className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <Logo alt="" priority className="h-6 w-auto" />
+            <Logo alt="" priority sizes="132px" className="h-11 w-auto" />
           </Link>
           <Link
             href="/app"
@@ -125,7 +125,7 @@ function SidebarContent({
           aria-label={`${assistantName} home`}
           className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Logo alt="" priority className="h-6 w-auto" />
+          <Logo alt="" priority sizes="144px" className="h-12 w-auto" />
         </Link>
       </div>
 

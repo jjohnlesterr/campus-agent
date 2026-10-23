@@ -24,7 +24,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
 
   return (
     <>
-      <PageHeader title="Users" description="Manage Campus Agent user accounts and profile information.">
+      <PageHeader title="Users" description="Manage CECT Agent user accounts and profile information.">
         <Link href="/admin/users/new" className={buttonVariants({ variant: "outline", size: "lg" })}>
           <UserPlus aria-hidden="true" />
           Create account manually
@@ -94,7 +94,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           </div>
         ) : (
           <div className="p-2">
-            <EmptyState icon={Users} title="No registered users yet." description="Accounts appear here once people sign up for Campus Agent." />
+            <EmptyState icon={Users} title="No registered users yet." description="Accounts appear here once people sign up for CECT Agent." />
           </div>
         )}
       </div>

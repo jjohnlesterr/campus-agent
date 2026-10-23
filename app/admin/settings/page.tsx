@@ -21,7 +21,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Manage global Campus Agent configuration." />
+      <PageHeader title="Settings" description="Manage global CECT Agent configuration." />
       {error || !settings ? (
         <p role="alert" className="mt-6 text-sm text-destructive">Settings could not be loaded. Please refresh this page.</p>
       ) : (

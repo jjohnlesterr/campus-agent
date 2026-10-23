@@ -5,7 +5,7 @@ import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 
 export type Branding = {
-  /** The product name. Fixed by default ("Campus Agent"); not edited in Admin › Settings. */
+  /** The product name. Fixed by default ("CECT Agent"); not edited in Admin › Settings. */
   assistantName: string
   universityName: string | null
   universityShortName: string | null
@@ -14,7 +14,7 @@ export type Branding = {
 }
 
 const DEFAULT_BRANDING: Branding = {
-  assistantName: "Campus Agent",
+  assistantName: "CECT Agent",
   universityName: null,
   universityShortName: null,
   universityLogoUrl: null,
@@ -22,7 +22,7 @@ const DEFAULT_BRANDING: Branding = {
 }
 
 // White-label values from system_settings (readable by everyone): the school's name, short
-// name, logo and time zone. Falls back to "Campus Agent" so the UI never hardcodes a school.
+// name, logo and time zone. Falls back to "CECT Agent" so the UI never hardcodes a school.
 export const getBranding = cache(async (): Promise<Branding> => {
   const supabase = await createClient()
   const { data } = await supabase

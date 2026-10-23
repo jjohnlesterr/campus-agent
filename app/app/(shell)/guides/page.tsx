@@ -22,7 +22,7 @@ export default async function GuidesPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-      <PageHeader title="School Guides" description="Official handbooks and university guides — the same published information Campus Agent answers from." />
+      <PageHeader title="School Guides" description="Official handbooks and university guides — the same published information CECT Agent answers from." />
 
       {collections === null ? (
         <p role="alert" className="mt-6 text-sm text-destructive">School guides could not be loaded. Please try again.</p>

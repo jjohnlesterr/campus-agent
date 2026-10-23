@@ -87,7 +87,7 @@ export function AnalyzeSourceButton({ id, format, analyzed, processing }: {
               <DialogHeader>
                 <DialogTitle>Re-{verb.toLowerCase()} this source?</DialogTitle>
                 <DialogDescription>
-                  Campus Agent will {verb.toLowerCase()} {where} again and generate updated knowledge sections as Drafts. Nothing will be published automatically.
+                  CECT Agent will {verb.toLowerCase()} {where} again and generate updated knowledge sections as Drafts. Nothing will be published automatically.
                 </DialogDescription>
               </DialogHeader>
               <p className="text-sm leading-relaxed">
@@ -104,7 +104,7 @@ export function AnalyzeSourceButton({ id, format, analyzed, processing }: {
               <DialogHeader>
                 <DialogTitle>{pdf ? "Analyze document with AI" : "Organize text with AI"}</DialogTitle>
                 <DialogDescription>
-                  Campus Agent will {pdf ? "extract and organize this document" : "organize this text"} into reviewable knowledge sections. Nothing will be published automatically.
+                  CECT Agent will {pdf ? "extract and organize this document" : "organize this text"} into reviewable knowledge sections. Nothing will be published automatically.
                 </DialogDescription>
               </DialogHeader>
               <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed">
@@ -120,7 +120,7 @@ export function AnalyzeSourceButton({ id, format, analyzed, processing }: {
                   </>
                 )}
                 <li>You can edit, delete or publish each section.</li>
-                <li>Only Published sections become available to Campus Agent.</li>
+                <li>Only Published sections become available to CECT Agent.</li>
               </ul>
             </>
           )}

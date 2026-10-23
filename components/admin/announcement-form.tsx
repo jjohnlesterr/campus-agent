@@ -36,8 +36,8 @@ type ImageState = { kind: "current"; url: string } | { kind: "none" } | { kind: 
 const STATUS_NOTE = {
   new: "Not saved yet. Publish shows it to everyone; Save draft keeps it admin-only.",
   draft: "Only admins can see it. Publish to show it to everyone.",
-  published: "Visible to everyone and to Campus Agent.",
-  archived: "Hidden from users and Campus Agent. Publish or save a draft to restore it.",
+  published: "Visible to everyone and to CECT Agent.",
+  archived: "Hidden from users and CECT Agent. Publish or save a draft to restore it.",
 }
 
 /**

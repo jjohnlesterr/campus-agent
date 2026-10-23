@@ -83,7 +83,7 @@ export default async function AdminDashboardPage() {
   const firstName = profile.full_name?.trim().split(/\s+/)[0] || "Admin"
 
   const metrics: { label: string; value: number; note: string; href: string; icon: LucideIcon }[] = [
-    { label: "Published Knowledge", value: publishedSections, note: "Available to Campus Agent", href: "/admin/knowledge", icon: Library },
+    { label: "Published Knowledge", value: publishedSections, note: "Available to CECT Agent", href: "/admin/knowledge", icon: Library },
     { label: "Ready Sources", value: readySources, note: "Processed and available", href: "/admin/knowledge", icon: FileText },
     { label: "Users", value: users, note: "Registered accounts", href: "/admin/users", icon: Users },
     { label: "Published Announcements", value: publishedAnnouncements, note: "University-wide notices", href: "/admin/announcements?tab=published", icon: Megaphone },
@@ -170,7 +170,7 @@ export default async function AdminDashboardPage() {
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{greeting(now, timezone)},</p>
           <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-[var(--ink)]">Welcome back, {firstName}!</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Here&apos;s an overview of your Campus Agent system.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Here&apos;s an overview of your CECT Agent system.</p>
         </div>
         <DashboardClock initialIso={now} timezone={timezone} />
       </header>
@@ -197,12 +197,12 @@ export default async function AdminDashboardPage() {
       <section aria-labelledby="readiness-heading" className="mt-5 overflow-hidden rounded-lg border bg-background">
         <div className={sectionHeader}>
           <h2 id="readiness-heading" className="font-semibold">System readiness</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">Key content and configuration Campus Agent depends on.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Key content and configuration CECT Agent depends on.</p>
         </div>
         {allReady && (
           <p className="flex items-center gap-2 border-b bg-[var(--success-surface)] px-5 py-2.5 text-sm font-medium text-[var(--success)]">
             <CircleCheck className="size-4" aria-hidden="true" />
-            Campus Agent is ready.
+            CECT Agent is ready.
           </p>
         )}
         <ul className="divide-y">
@@ -236,7 +236,7 @@ export default async function AdminDashboardPage() {
       <section aria-labelledby="updates-heading" className="mt-5 overflow-hidden rounded-lg border bg-background">
         <div className={sectionHeader}>
           <h2 id="updates-heading" className="font-semibold">Recent updates</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">Latest changes across Campus Agent.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Latest changes across CECT Agent.</p>
         </div>
         {updates.length > 0 ? (
           <ul className="divide-y">

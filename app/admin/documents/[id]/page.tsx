@@ -207,7 +207,7 @@ function sourceHealth({ status, analyzable, verb, total, published, drafts }: {
   published: number
   drafts: number
 }): { title: string; detail: string } {
-  if (status === "archived") return { title: "Archived", detail: "This source and its sections are not used by Campus Agent." }
+  if (status === "archived") return { title: "Archived", detail: "This source and its sections are not used by CECT Agent." }
   if (status === "processing") return { title: "Analysis in progress", detail: "Draft sections appear below when it finishes." }
   if (status === "failed") {
     return { title: "Analysis failed", detail: published ? "Published sections are still in use. Fix the issue above and re-analyze." : "Fix the issue above and analyze again." }
@@ -215,6 +215,6 @@ function sourceHealth({ status, analyzable, verb, total, published, drafts }: {
   if (!analyzable) return { title: "Reference file", detail: "Stored for admins and the campus map. Images are not analyzed." }
   if (total === 0) return { title: verb === "Analyze" ? "Not analyzed yet" : "Not organized yet", detail: `${verb} this source with AI to create draft knowledge sections for review, or add sections yourself.` }
   if (drafts > 0) return { title: "Needs review", detail: `${drafts} draft ${drafts === 1 ? "section is" : "sections are"} waiting for review before publishing.` }
-  if (published > 0) return { title: "Ready for Campus Agent answers", detail: `${published} published ${published === 1 ? "section is" : "sections are"} used by Campus Agent.` }
-  return { title: "No published sections", detail: "Publish reviewed sections to make them available to Campus Agent." }
+  if (published > 0) return { title: "Ready for CECT Agent answers", detail: `${published} published ${published === 1 ? "section is" : "sections are"} used by CECT Agent.` }
+  return { title: "No published sections", detail: "Publish reviewed sections to make them available to CECT Agent." }
 }

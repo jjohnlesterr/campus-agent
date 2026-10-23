@@ -101,7 +101,7 @@ export function SourceSections({
         <div className="min-w-0">
           <h2 id="sections-heading" className="text-lg font-semibold">Knowledge Sections</h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            {format === "pdf" ? "Extracted from this PDF" : "Organized from this text"}. Review each section against the original, edit it if needed, then publish. Only Published sections are used by Campus Agent.
+            {format === "pdf" ? "Extracted from this PDF" : "Organized from this text"}. Review each section against the original, edit it if needed, then publish. Only Published sections are used by CECT Agent.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -223,7 +223,7 @@ export function SourceSections({
           <DialogHeader>
             <DialogTitle>Publish {drafts.length} draft {drafts.length === 1 ? "section" : "sections"}?</DialogTitle>
             <DialogDescription>
-              Confirm you have reviewed {drafts.length === 1 ? "it" : "them"} against the original {original}. Published sections are used by Campus Agent to answer students. You can move a section back to Draft at any time.
+              Confirm you have reviewed {drafts.length === 1 ? "it" : "them"} against the original {original}. Published sections are used by CECT Agent to answer students. You can move a section back to Draft at any time.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

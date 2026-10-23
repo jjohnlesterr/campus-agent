@@ -68,6 +68,6 @@ export async function askPublic(question: string): Promise<PublicAskResult> {
     }
     return { ok: true, answer, remaining }
   } catch {
-    return { ok: false, error: "Campus Agent couldn't answer right now. Please try again.", remaining }
+    return { ok: false, error: "CECT Agent couldn't answer right now. Please try again.", remaining }
   }
 }

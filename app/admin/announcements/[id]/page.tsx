@@ -31,7 +31,7 @@ export default async function EditAnnouncementPage({ params }: PageProps<"/admin
     <>
       <PageHeader
         title="Edit announcement"
-        description={announcement.status === "archived" ? "Archived: hidden from users and Campus Agent. Save it as a draft or publish it to restore it." : undefined}
+        description={announcement.status === "archived" ? "Archived: hidden from users and CECT Agent. Save it as a draft or publish it to restore it." : undefined}
       >
         <div className="flex flex-wrap items-center gap-2">
           {/* Opens the admin-entered link only; nothing is fetched from it. */}

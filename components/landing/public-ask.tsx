@@ -11,7 +11,7 @@ import type { StructuredAnswer } from "@/lib/ai/answer-types"
 
 type Turn = { id: number; question: string; answer: StructuredAnswer | null; error: string | null }
 
-const ERROR = "Campus Agent couldn't answer right now. Please try again."
+const ERROR = "CECT Agent couldn't answer right now. Please try again."
 
 function remainingLabel(n: number) {
   return `${n} ${n === 1 ? "question" : "questions"} remaining`

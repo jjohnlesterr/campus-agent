@@ -28,7 +28,7 @@ export type PasswordResetEmailInput = {
 }
 
 /** "Reset your password" email sent when an admin starts a password reset for a user. */
-export function buildPasswordResetEmail({ fullName, resetUrl, assistantName = "Campus Agent", logoUrl }: PasswordResetEmailInput) {
+export function buildPasswordResetEmail({ fullName, resetUrl, assistantName = "CECT Agent", logoUrl }: PasswordResetEmailInput) {
   const subject = `Reset your ${assistantName} password`
   const intro = `A password reset was requested for your ${assistantName} account. Use the button below to choose a new password.`
   const note = "This link can be used once and expires soon. If you didn't expect this email, you can ignore it: your password stays the same."

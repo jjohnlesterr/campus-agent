@@ -164,7 +164,7 @@ export default async function CollectionPage({ params, searchParams }: PageProps
             description={
               query
                 ? "Try a different word, or clear the search to see everything in this collection."
-                : "Choose Add source to upload a document or create a text source. Only Published knowledge is used by Campus Agent."
+                : "Choose Add source to upload a document or create a text source. Only Published knowledge is used by CECT Agent."
             }
           >
             {query && <Link href={tab === "all" ? basePath : `${basePath}?tab=${tab}`} className={buttonVariants({ variant: "outline" })}>Clear search</Link>}

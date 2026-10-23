@@ -138,7 +138,7 @@ export function SourceActions({ id, title, description, status, isPdf, isText, f
           <DialogHeader>
             <DialogTitle>Archive “{title}”?</DialogTitle>
             <DialogDescription>
-              The source and all of its sections will be archived. Campus Agent and students stop using them right away. Nothing is deleted, and you can restore the source later.
+              The source and all of its sections will be archived. CECT Agent and students stop using them right away. Nothing is deleted, and you can restore the source later.
             </DialogDescription>
           </DialogHeader>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -155,7 +155,7 @@ export function SourceActions({ id, title, description, status, isPdf, isText, f
             <DialogTitle>Delete “{title}”?</DialogTitle>
             <DialogDescription>
               {publishedCount > 0
-                ? `This source has ${publishedCount} Published ${publishedCount === 1 ? "section" : "sections"} that Campus Agent uses. Move them to Draft or archive the source instead.`
+                ? `This source has ${publishedCount} Published ${publishedCount === 1 ? "section" : "sections"} that CECT Agent uses. Move them to Draft or archive the source instead.`
                 : `The file${otherSectionCount ? ` and its ${otherSectionCount} Draft/Archived ${otherSectionCount === 1 ? "section" : "sections"}` : ""} will be permanently deleted. This cannot be undone.`}
             </DialogDescription>
           </DialogHeader>
@@ -221,7 +221,7 @@ function ReplaceFileDialog({ id, isPdf, open, onOpenChange, onDone }: {
           <DialogTitle>Replace file</DialogTitle>
           <DialogDescription>
             {isPdf
-              ? "Upload an updated PDF. Published sections stay available to Campus Agent; re-analyze afterwards to review new or changed topics as Drafts."
+              ? "Upload an updated PDF. Published sections stay available to CECT Agent; re-analyze afterwards to review new or changed topics as Drafts."
               : "Upload an updated PNG or JPG/JPEG image."}
           </DialogDescription>
         </DialogHeader>

@@ -49,7 +49,7 @@ export function AdminSidebar({ assistantName, userName, userEmail, collapsed = f
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r bg-background text-foreground">
-      <div className={cn("flex shrink-0 border-b", collapsed ? "flex-col items-center gap-2 px-2 py-3" : "min-h-16 items-center gap-2 px-4")}>
+      <div className={cn("flex shrink-0 border-b", collapsed ? "flex-col items-center gap-2 px-2 py-3" : "min-h-16 items-center gap-2 px-4 py-2")}>
         <Link
           href="/admin"
           onClick={onNavigate}
@@ -60,7 +60,7 @@ export function AdminSidebar({ assistantName, userName, userEmail, collapsed = f
             <LogoMark size={32} priority />
           ) : (
             <span className="flex flex-col gap-1">
-              <Logo alt="" priority className="h-6 w-auto max-w-full self-start" />
+              <Logo alt="" priority sizes="132px" className="h-11 w-auto max-w-full self-start" />
               <span className="text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">Administration</span>
             </span>
           )}

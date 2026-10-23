@@ -75,7 +75,7 @@ export function LandingNav({ account, floating = false }: { account: { homeHref:
   const pendingSection = useRef<string | null>(null)
   const headerRef = useRef<HTMLElement>(null)
   const currentSection = useCurrentSection(headerRef)
-  const menuLinks = account ? [{ href: account.homeHref, label: "Open Campus Agent" }] : GUEST_LINKS
+  const menuLinks = account ? [{ href: account.homeHref, label: "Open CECT Agent" }] : GUEST_LINKS
 
   return (
     <header ref={headerRef} className={cn(
@@ -92,7 +92,7 @@ export function LandingNav({ account, floating = false }: { account: { homeHref:
       )}>
         <Link
           href="/"
-          aria-label="Campus Agent home"
+          aria-label="CECT Agent home"
           onClick={(event) => {
             // Already on the landing page: glide back to the hero (smooth via globals.css) instead of re-navigating.
             if (location.pathname !== "/") return
@@ -106,13 +106,13 @@ export function LandingNav({ account, floating = false }: { account: { homeHref:
               src="/assets/newlogo.png"
               width={2172}
               height={724}
-              alt="Campus Agent"
+              alt="CECT Agent"
               sizes="(min-width: 640px) 168px, (min-width: 360px) 144px, 120px"
               preload
               className="h-10 w-30 object-contain min-[360px]:h-12 min-[360px]:w-36 sm:h-14 sm:w-42"
             />
           ) : (
-            <LandingLogo className="h-6 w-auto sm:h-7" priority />
+            <LandingLogo sizes="(min-width: 360px) 144px, 120px" className="h-10 w-auto min-[360px]:h-12" priority />
           )}
         </Link>
 
@@ -138,7 +138,7 @@ export function LandingNav({ account, floating = false }: { account: { homeHref:
             // Short label on phones so the header never overflows at 360px.
             <Link href={account.homeHref} className={cn(buttonVariants({ size: "lg" }), floating ? "h-10 gap-2 rounded-xl px-2.5 text-xs font-semibold transition-colors duration-200 hover:bg-primary/90 min-[360px]:text-sm sm:h-11 sm:px-4 motion-reduce:transition-none" : "px-3 sm:px-4")}>
               <span className="sm:hidden">Open app</span>
-              <span className="hidden sm:inline">Open Campus Agent</span>
+              <span className="hidden sm:inline">Open CECT Agent</span>
               {floating && <ArrowRight className="size-4" aria-hidden="true" />}
             </Link>
           ) : (
@@ -177,9 +177,9 @@ export function LandingNav({ account, floating = false }: { account: { homeHref:
             <SheetContent side="right" className="w-72 max-w-[calc(100vw-2rem)] gap-0 p-0">
               <SheetTitle className="border-b px-5 py-4">
                 {floating ? (
-                  <Image src="/assets/newlogo.png" width={2172} height={724} alt="Campus Agent" sizes="144px" className="h-12 w-36 object-contain" />
+                  <Image src="/assets/newlogo.png" width={2172} height={724} alt="CECT Agent" sizes="144px" className="h-12 w-36 object-contain" />
                 ) : (
-                  <LandingLogo className="h-6 w-auto" />
+                  <LandingLogo sizes="144px" className="h-12 w-auto" />
                 )}
                 <span className="sr-only">Menu</span>
               </SheetTitle>

@@ -18,7 +18,7 @@ export type SignupState = (NonNullable<AuthFormState> & { confirmEmail?: undefin
 
 // Supabase Auth couldn't be reached (network failure, DNS, paused project, 502–504). This is
 // an outage, not a problem with what the user typed, so say so instead of blaming the form.
-const AUTH_UNAVAILABLE = "Campus Agent can't reach the account service right now. Please try again in a few minutes."
+const AUTH_UNAVAILABLE = "CECT Agent can't reach the account service right now. Please try again in a few minutes."
 const signupSchema = z
   .object({
     full_name: z.string().trim().min(2, "Enter your full name.").max(120, "Use 120 characters or fewer."),

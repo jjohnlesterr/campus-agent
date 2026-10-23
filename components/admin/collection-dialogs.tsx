@@ -72,7 +72,7 @@ function CollectionFormDialog({ open, onOpenChange, collection }: {
       <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>{collection ? "Edit collection" : "Create collection"}</DialogTitle>
-          <DialogDescription>Collections group sources for admins. Campus Agent still uses Published knowledge from every collection.</DialogDescription>
+          <DialogDescription>Collections group sources for admins. CECT Agent still uses Published knowledge from every collection.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <Field id="collection-name" label="Name">
@@ -86,7 +86,7 @@ function CollectionFormDialog({ open, onOpenChange, collection }: {
               maxLength={500}
               disabled={pending}
               className={cn(textareaClass, "min-h-20")}
-              placeholder="e.g. Official handbook and academic rules used by Campus Agent."
+              placeholder="e.g. Official handbook and academic rules used by CECT Agent."
             />
           </Field>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -203,7 +203,7 @@ export function MoveToCollectionDialog({ open, onOpenChange, kind, id, title, cu
       <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>Move “{title}”</DialogTitle>
-          <DialogDescription>Only its collection changes. Sections, statuses and Campus Agent answers stay the same.</DialogDescription>
+          <DialogDescription>Only its collection changes. Sections, statuses and CECT Agent answers stay the same.</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-4"

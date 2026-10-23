@@ -1,12 +1,12 @@
 "use client"
 
 import { Menu } from "lucide-react"
-import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { cn } from "cn"
 
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
+import { Logo } from "@/components/shared/logo"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 export function AdminShell({ assistantName, userName, userEmail, children }: {
@@ -43,7 +43,7 @@ export function AdminShell({ assistantName, userName, userEmail, children }: {
             </SheetContent>
           </Sheet>
           <Link href="/admin" aria-label={`${assistantName} administration home`} className="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Image src="/assets/logo.png" width={2060} height={344} alt="" priority className="h-6 w-auto" />
+            <Logo alt="" priority sizes="132px" className="h-11 w-auto" />
             <span className="text-xs font-medium text-muted-foreground">Admin</span>
           </Link>
         </header>

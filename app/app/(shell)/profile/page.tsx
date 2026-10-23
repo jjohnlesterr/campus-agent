@@ -16,7 +16,7 @@ export default async function ProfilePage() {
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <PageHeader
         title="Your profile"
-        description="Your intended college and program help Campus Agent show the most relevant information first. You can still browse everything."
+        description="Your intended college and program help CECT Agent show the most relevant information first. You can still browse everything."
       />
 
       <dl className="mt-8 grid max-w-xl gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2">

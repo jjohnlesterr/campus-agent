@@ -10,8 +10,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Brief fade/rise on load; skipped under prefers-reduced-motion. */}
       <div className="w-full max-w-[440px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-200 motion-safe:ease-out">
         <div className="rounded-xl border bg-background px-6 py-8 shadow-[0_1px_2px_oklch(0.3_0.05_260/0.05),0_12px_32px_-18px_oklch(0.3_0.05_260/0.18)] sm:px-9 sm:py-10">
-          <Link href="/" aria-label="Campus Agent home" className="inline-block rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <Logo className="h-7 w-auto" priority />
+          <Link href="/" aria-label="CECT Agent home" className="inline-block rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <Logo sizes="168px" className="h-14 w-auto" priority />
           </Link>
           <div className="mt-8">{children}</div>
         </div>

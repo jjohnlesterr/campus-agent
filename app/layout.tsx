@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Campus Agent",
+  title: "CECT Agent",
   description: "Find official university procedures, offices and announcements.",
 };
 

@@ -109,7 +109,7 @@ export function AccountActions({ account, disabled }: { account: Account; disabl
           <DialogHeader>
             <DialogTitle>Deactivate {account.name}?</DialogTitle>
             <DialogDescription>
-              {account.email} will no longer be able to sign in or use Campus Agent until the account is reactivated. Their
+              {account.email} will no longer be able to sign in or use CECT Agent until the account is reactivated. Their
               account and profile data are kept.
             </DialogDescription>
           </DialogHeader>

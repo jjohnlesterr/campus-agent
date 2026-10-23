@@ -6,7 +6,7 @@ const STEPS = [
     body: (example: string) => `Type a question the way you would ask a friend — ${example}`,
   },
   {
-    title: "Campus Agent checks reliable sources",
+    title: "CECT Agent checks reliable sources",
     body: "It searches the handbook, published guides and the official office directory — not the open internet.",
   },
   {

@@ -19,7 +19,7 @@ import {
  * Asks before signing out. `trigger` is the button that opens it; signing out runs the
  * existing logout action, which redirects to /login.
  */
-export function SignOutDialog({ trigger, appName = "Campus Agent" }: { trigger: React.ReactElement; appName?: string }) {
+export function SignOutDialog({ trigger, appName = "CECT Agent" }: { trigger: React.ReactElement; appName?: string }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 

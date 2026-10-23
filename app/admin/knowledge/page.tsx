@@ -34,7 +34,7 @@ export default async function KnowledgeLibraryPage({ searchParams }: PageProps<"
 
   return (
     <div data-layout="wide" className="w-full min-w-0">
-      <PageHeader title="Knowledge Library" description="Organize university knowledge into collections. Campus Agent uses Published knowledge from every collection.">
+      <PageHeader title="Knowledge Library" description="Organize university knowledge into collections. CECT Agent uses Published knowledge from every collection.">
         <CreateCollectionButton />
       </PageHeader>
 

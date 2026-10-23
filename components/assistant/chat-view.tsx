@@ -72,7 +72,7 @@ export function ChatView({
       }
       return true
     } catch {
-      setError("Campus Agent could not complete this request right now. Please try again.")
+      setError("CECT Agent could not complete this request right now. Please try again.")
       return false
     } finally {
       setPendingQuestion(null)

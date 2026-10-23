@@ -164,7 +164,7 @@ export async function sendPasswordReset(id: string): Promise<AccountActionResult
     const resetUrl = new URL("/auth/confirm", base)
     resetUrl.searchParams.set("token_hash", token)
     resetUrl.searchParams.set("type", "recovery")
-    const logoUrl = base.protocol === "https:" ? new URL("/assets/logo.png", base).toString() : undefined
+    const logoUrl = base.protocol === "https:" ? new URL("/assets/newlogo.png", base).toString() : undefined
     const message = buildPasswordResetEmail({ fullName: user.full_name ?? user.email, resetUrl: resetUrl.toString(), assistantName, logoUrl })
     const sent = await sendEmail({ to: user.email, ...message })
     if (!sent.ok) {

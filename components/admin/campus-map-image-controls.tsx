@@ -77,7 +77,7 @@ export function CampusMapImageControls({ hasMap }: { hasMap: boolean }) {
           <DialogHeader>
             <DialogTitle>Remove the campus map image?</DialogTitle>
             <DialogDescription>
-              Only the picture is removed. Buildings, offices and the legend stay, and Campus Agent keeps answering location questions from them.
+              Only the picture is removed. Buildings, offices and the legend stay, and CECT Agent keeps answering location questions from them.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
