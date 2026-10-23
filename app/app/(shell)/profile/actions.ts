@@ -13,7 +13,7 @@ export type ProfileFormState = (NonNullable<FormState> & { saved?: boolean }) | 
 const profileSchema = z
   .object({
     full_name: z.string().trim().min(2, "Enter your full name.").max(120, "Use 120 characters or fewer."),
-    user_type: z.enum(USER_TYPE_VALUES, "Choose Incoming Freshman or Visitor."),
+    user_type: z.enum(USER_TYPE_VALUES, "Choose Freshman or Visitor."),
     intended_department_id: optionalUuid,
     intended_program_id: optionalUuid,
   })

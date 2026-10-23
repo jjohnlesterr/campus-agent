@@ -40,9 +40,9 @@ import { type KnowledgePassage, searchKnowledge } from "@/lib/rag/search"
 //   using, so a citation can never be invented.
 
 export const NO_SOURCE_MESSAGE =
-  "I couldn't find a verified university source for this yet. You may contact the Office of the Registrar for confirmation."
+  "I couldn't find a reliable university source for this yet. You may contact the Office of the Registrar for confirmation."
 const NO_SOURCE_MESSAGE_FIL =
-  "Wala pa akong nahanap na verified na source mula sa unibersidad para dito. Maaari kang makipag-ugnayan sa Office of the Registrar para makumpirma."
+  "Wala pa akong nahanap na maaasahang sanggunian mula sa unibersidad para dito. Maaari kang makipag-ugnayan sa Office of the Registrar para makumpirma."
 const noSourceMessage = (language: ReplyLanguage) => (language === "fil" ? NO_SOURCE_MESSAGE_FIL : NO_SOURCE_MESSAGE)
 export const ERROR_MESSAGE = "Campus Agent could not complete this request right now. Please try again."
 

@@ -39,7 +39,7 @@ export function TextSourceForm({ collectionId, cancelHref }: { collectionId: str
           aria-describedby="text-description-hint"
         />
       </Field>
-      <Field id="text-content" label="Content" hint="Paste or write only verified, official information. It is kept exactly as entered.">
+      <Field id="text-content" label="Content" hint="Paste or write only reliable, official information. It is kept exactly as entered.">
         <textarea
           id="text-content"
           name="content"

@@ -138,7 +138,7 @@ export async function registerSource(input: z.input<typeof registerSchema>): Pro
 const textSourceSchema = z.object({
   title: z.string().trim().min(2, "Enter a title (at least 2 characters).").max(200, "Use 200 characters or fewer for the title."),
   description: z.string().trim().max(1000, "Keep the description under 1,000 characters."),
-  content: z.string().trim().min(10, "Add the verified text (at least 10 characters).").max(MAX_TEXT_SOURCE_CHARS, "Keep the text under 200,000 characters."),
+  content: z.string().trim().min(10, "Add the reliable text (at least 10 characters).").max(MAX_TEXT_SOURCE_CHARS, "Keep the text under 200,000 characters."),
   referenceLabel: z.string().trim().max(300, "Use 300 characters or fewer for the reference."),
   sourceUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/, error: "Enter a full link starting with https://." }).max(2000)]),
   // Knowledge Library collection it is created in ("" = Uncategorized).

@@ -72,7 +72,7 @@ test('personalization prefers the intended college/program, then the legacy one'
 
 test('user type labels; roles are shown as Admin or User', () => {
   const types = load('lib/user-types.ts')
-  assert.equal(types.userTypeLabel('freshman'), 'Incoming Freshman')
+  assert.equal(types.userTypeLabel('freshman'), 'Freshman')
   assert.equal(types.userTypeLabel('visitor'), 'Visitor')
   assert.equal(types.userTypeLabel(null), null)
   assert.equal(types.roleLabel('user'), 'User')

@@ -44,7 +44,7 @@ export default async function AdminAnnouncementsPage({ searchParams }: PageProps
 
   return (
     <>
-      <PageHeader title="Announcements" description="Official university-wide updates and notices for incoming freshmen and visitors.">
+      <PageHeader title="Announcements" description="Official university-wide updates and notices for freshmen and visitors.">
         <Link href="/admin/announcements/new" className={buttonVariants({ size: "lg" })}>
           <Plus aria-hidden="true" />
           New announcement

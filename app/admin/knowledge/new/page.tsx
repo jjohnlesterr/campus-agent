@@ -36,7 +36,7 @@ export default async function NewTextSourcePage({ searchParams }: PageProps<"/ad
           <li aria-current="page" className="font-medium text-foreground">Create text source</li>
         </ol>
       </nav>
-      <PageHeader title="Create text source" description={`Write or paste verified information. It is added to ${collection ? `“${collection.name}”` : "Uncategorized"} as a source, next to uploaded documents.`} />
+      <PageHeader title="Create text source" description={`Write or paste reliable information. It is added to ${collection ? `“${collection.name}”` : "Uncategorized"} as a source, next to uploaded documents.`} />
       <div className="mt-6 max-w-3xl rounded-lg border bg-background p-5 sm:p-6">
         <TextSourceForm collectionId={collection?.id ?? null} cancelHref={backHref} />
       </div>

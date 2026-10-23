@@ -2,7 +2,7 @@
 // server actions and tests (no server-only imports).
 
 export const USER_TYPES = [
-  { value: "freshman", label: "Incoming Freshman" },
+  { value: "freshman", label: "Freshman" },
   { value: "visitor", label: "Visitor" },
 ] as const
 
@@ -10,7 +10,7 @@ export type UserType = (typeof USER_TYPES)[number]["value"]
 
 export const USER_TYPE_VALUES = USER_TYPES.map((t) => t.value) as [UserType, ...UserType[]]
 
-/** "Incoming Freshman", "Visitor", or null when the profile has none (admins, legacy accounts). */
+/** "Freshman", "Visitor", or null when the profile has none (admins, legacy accounts). */
 export function userTypeLabel(value: string | null | undefined) {
   return USER_TYPES.find((t) => t.value === value)?.label ?? null
 }

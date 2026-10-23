@@ -45,7 +45,7 @@ export function AddSourceButton({ collectionId, collectionType }: { collectionId
               <PenLine className="size-5 shrink-0 text-primary" aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium">Create text source</span>
-                <span className="block text-sm text-muted-foreground">Write or paste verified information manually.</span>
+                <span className="block text-sm text-muted-foreground">Write or paste reliable information manually.</span>
               </span>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </Link>

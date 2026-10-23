@@ -14,9 +14,9 @@ export type GuardrailResult =
 export const LOCAL_RESPONSES = {
   greeting: "Hi! I can help with campus procedures, offices, university announcements, and other university information.",
   thanks: "You're welcome! Ask me anything about campus procedures, offices, or university announcements.",
-  help: "I can help with enrollment, grades, document requests, offices, campus locations, university announcements, and other verified university information.",
+  help: "I can help with enrollment, grades, document requests, offices, campus locations, university announcements, and other reliable university information.",
   nonsense: "I'm here to help with university-related questions. Try asking about enrollment, grades, documents, offices, or campus services.",
-  off_topic: "That's outside Campus Agent's scope. I can help with verified university information and campus processes.",
+  off_topic: "That's outside Campus Agent's scope. I can help with reliable university information and campus processes.",
   abusive: "I'm here to help with campus-related questions. You can ask about school procedures, offices, announcements, or university information.",
 } as const
 
