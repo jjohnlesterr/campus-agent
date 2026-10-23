@@ -141,10 +141,22 @@ export async function setGuideStatuses(ids: string[], intent: "draft" | "publish
   if (!parsed.success) return { ok: false, error: "Select valid sections and a publishing action." }
   const uniqueIds = [...new Set(parsed.data.ids)]
   const db = await createClient()
+  let targetIds = uniqueIds
+  if (parsed.data.intent === "published") {
+    // Like the section editor: a section of an archived source can't be published (it would
+    // show in School Guides while Campus Agent ignores it). Restore the source first.
+    const { data: rows, error: rowsError } = await db.from("guidelines").select("id, source_document_id").in("id", uniqueIds)
+    const sourceIds = [...new Set((rows ?? []).flatMap((r) => (r.source_document_id ? [r.source_document_id] : [])))]
+    const archived = sourceIds.length ? await db.from("documents").select("id").in("id", sourceIds).eq("status", "archived") : { data: [], error: null }
+    if (rowsError || archived.error) return { ok: false, error: "The publishing status could not be updated. Your selection is preserved; please try again." }
+    const archivedIds = new Set((archived.data ?? []).map((d) => d.id))
+    targetIds = (rows ?? []).filter((r) => !r.source_document_id || !archivedIds.has(r.source_document_id)).map((r) => r.id)
+    if (!targetIds.length) return { ok: true, updated: 0, skipped: uniqueIds.length }
+  }
   // One status-only statement. The status predicate protects mixed or stale selections.
   const { data, count, error } = await db.from("guidelines")
     .update({ status: parsed.data.intent }, { count: "exact" })
-    .in("id", uniqueIds)
+    .in("id", targetIds)
     .eq("status", parsed.data.intent === "published" ? "draft" : "published")
     .select("id")
   if (error) return { ok: false, error: "The publishing status could not be updated. Your selection is preserved; please try again." }

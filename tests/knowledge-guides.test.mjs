@@ -664,3 +664,19 @@ test('re-analysis drops Steps an earlier analysis copied into unchanged, unedite
   await createDraftGuides(db, sourceId)
   assert.deepEqual(state.steps.map(s => s.title), ['Published step.'])
 })
+test('bulk publish skips sections of an archived source (the section editor already blocks this)', async () => {
+  const { state, db, createDraftGuides, setGuideStatuses } = database()
+  await createDraftGuides(db, sourceId)
+  // Archive the source, then restore one section to Draft: it must not become Published in bulk.
+  state.source.status = 'archived'
+  state.guides[0].status = 'draft'
+  const result = await setGuideStatuses([state.guides[0].id], 'published')
+  assert.equal(result.ok, true); assert.equal(result.updated, 0); assert.equal(result.skipped, 1)
+  assert.equal(state.guides[0].status, 'draft')
+  assert.equal(state.mutations.filter(m => m.values?.status === 'published').length, 0)
+  // Unpublishing is never blocked.
+  state.source.status = 'ready'
+  assert.equal((await setGuideStatuses([state.guides[0].id], 'published')).updated, 1)
+  state.source.status = 'archived'
+  assert.equal((await setGuideStatuses([state.guides[0].id], 'draft')).updated, 1)
+})
